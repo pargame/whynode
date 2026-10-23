@@ -1,0 +1,33 @@
+# OS Metadata
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+
+# Environment variables & secrets
+.env
+.env.*
+.env.local
+.env.*.local
+*.pem
+*.key
+*credential*
+credentials.json
+
+# IDE & Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.agents/
+.cache/
+
+# Logs
+*.log
+logs/
+
+# Node / JS
+node_modules/
+dist/
+build/
