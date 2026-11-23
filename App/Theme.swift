@@ -13,8 +13,11 @@ enum Theme {
     static let separator = Color(uiColor: .separator)
     #endif
 
-    static let edge = Color.secondary.opacity(0.7)
-    static let refEdge = Color.accentColor.opacity(0.7)
+    /// 선은 노드보다 한발 물러서 보이도록 연하게 둔다.
+    static let edge = Color.secondary.opacity(0.45)
+    static let refEdge = Color.accentColor.opacity(0.45)
+    /// 선 굵기(pt). 화면 좌표로 그리므로 확대 · 축소와 상관없이 같은 굵기로 보인다.
+    static let edgeWidth: CGFloat = 1
 
     /// 불투명 바탕 위에 겹치는 상태 색
     static func tint(for status: NodeStatus) -> Color {

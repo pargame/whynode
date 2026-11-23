@@ -144,7 +144,7 @@ struct EdgeLayer: View {
     }
 
     private static func style(_ kind: EdgeItem.Kind) -> StrokeStyle {
-        StrokeStyle(lineWidth: kind == .tree ? 1.5 : 1.4, dash: kind == .tree ? [] : [6, 5])
+        StrokeStyle(lineWidth: Theme.edgeWidth, dash: kind == .tree ? [] : [6, 5])
     }
 
     private var edgeItems: [EdgeItem] {

@@ -107,4 +107,50 @@ struct ScrollPanMonitor: NSViewRepresentable {
         }
     }
 }
+
+/// ⌫ · ⌦ 키로 포커스 노드를 지운다. 이 뷰가 놓인 창이 키 창이고, 글자 입력 중이 아니며, 시트 · 알림이 없을 때만 처리한다.
+/// 메뉴 단축키로 두면 입력칸의 글자 지우기까지 가로채므로 이벤트를 직접 거른다.
+struct DeleteKeyMonitor: NSViewRepresentable {
+    /// 처리했으면 true를 돌려 이벤트를 소비한다.
+    let onDelete: () -> Bool
+
+    func makeNSView(context: Context) -> MonitorView {
+        let view = MonitorView()
+        view.onDelete = onDelete
+        return view
+    }
+
+    func updateNSView(_ view: MonitorView, context: Context) {
+        view.onDelete = onDelete
+    }
+
+    final class MonitorView: NSView {
+        var onDelete: (() -> Bool)?
+        nonisolated(unsafe) private var monitor: Any?
+        /// 51: Delete(⌫), 117: Forward Delete(⌦)
+        private static let keyCodes: Set<UInt16> = [51, 117]
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            if let monitor { NSEvent.removeMonitor(monitor) }
+            monitor = nil
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+                guard let self, let window = self.window, event.window === window, window.isKeyWindow,
+                      window.attachedSheet == nil,
+                      Self.keyCodes.contains(event.keyCode),
+                      event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad]).isEmpty,
+                      !(window.firstResponder is NSText)
+                else { return event }
+                return self.onDelete?() == true ? nil : event
+            }
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        deinit {
+            if let monitor { NSEvent.removeMonitor(monitor) }
+        }
+    }
+}
 #endif

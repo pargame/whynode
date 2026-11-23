@@ -48,12 +48,17 @@ struct MapScreen: View {
             canvas.offset.width += delta.width
             canvas.offset.height += delta.height
         })
+        .background(DeleteKeyMonitor { deleteFocused() })
         #endif
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
             TextField(prompt?.placeholder ?? "", text: $promptText)
             Button("확인") { submitPrompt() }
             Button("취소", role: .cancel) { prompt = nil }
+        } message: {
+            if case .edit(let id) = prompt, !map.childIDs(of: id).isEmpty {
+                Text("답변은 새로 받고, 하위 노드는 유지됩니다.")
+            }
         }
         .alert("알림", isPresented: noticeBinding) {
             Button("확인", role: .cancel) { ai.notice = nil; importError = nil }
@@ -93,6 +98,7 @@ struct MapScreen: View {
                 isSuggesting: ai.suggesting.contains(node.id),
                 isQuiet: canvas.isMoving,
                 textScale: textScale,
+                zoom: canvas.effectiveScale,
                 onRetry: { retry(node.id) }
             )
             .equatable()
@@ -104,7 +110,7 @@ struct MapScreen: View {
             .contextMenu { menu(for: node) }
 
             if focused, node.status == .done {
-                suggestionChips(for: node, textScale: textScale)
+                suggestionChips(for: node, textScale: textScale, zoom: canvas.effectiveScale)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
@@ -136,18 +142,18 @@ struct MapScreen: View {
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
-    private func suggestionChips(for node: Node, textScale: Double) -> some View {
+    private func suggestionChips(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
         VStack(spacing: 8) {
             ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                chip(Text(suggestion.text), textScale: textScale) { pick(suggestion, of: node.id) }
+                chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
             }
-            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale) {
+            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
                 ask(.custom(parent: node.id))
             }
         }
     }
 
-    private func chip(_ label: Text, textScale: Double, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
                 .font(.scaled(.callout, textScale))
@@ -156,7 +162,7 @@ struct MapScreen: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 9)
                 .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
-                .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
+                .overlay(Capsule().stroke(Color.accentColor.opacity(0.6), lineWidth: 1 / zoom))
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
         }
         .buttonStyle(.plain)
@@ -234,6 +240,14 @@ struct MapScreen: View {
                 if let focusedId, map[focusedId] == nil { self.focusedId = nil }
             }
         }
+    }
+
+    /// ⌫ · ⌦: 포커스 노드와 그 아래 가지를 확인 없이 지운다. ⌘Z로 되돌린다. 루트는 지우지 않는다.
+    private func deleteFocused() -> Bool {
+        guard let id = focusedId, id != map.rootId, map[id] != nil else { return false }
+        document.perform("노드 삭제", undoManager: undoManager) { $0.deleteSubtree(id) }
+        focusedId = nil
+        return true
     }
 
     // 입력
