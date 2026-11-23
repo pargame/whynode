@@ -171,6 +171,15 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
+    /// 진행 중인 요청이 없는 대기 노드를 중단 상태로 바꾼다. 실행 취소로 되돌린 대기 노드가 영영 기다리지 않게 한다.
+    /// 열 때의 복구(`Integrity.repair`)와 같이 수정 시각은 건드리지 않는다.
+    public mutating func interruptPending(except inFlight: Set<WID>) {
+        for i in file.nodes.indices where file.nodes[i].status == .pending && !inFlight.contains(file.nodes[i].id) {
+            file.nodes[i].status = .error
+            file.nodes[i].error = Integrity.interruptedMessage
+        }
+    }
+
     /// 추가 질문 다시 받기 결과: 사용된 항목은 남기고 미사용 항목만 교체한다. 노드 상태는 바꾸지 않는다.
     public mutating func replaceSuggestions(_ id: WID, with texts: [String], now: Date = Date()) {
         guard self[id] != nil else { return }

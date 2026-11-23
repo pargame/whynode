@@ -161,6 +161,20 @@ struct MindMapTests {
         answered(&map, a)
         #expect(map[a] == nil)
     }
+
+    @Test func 요청이_없는_대기_노드만_중단_상태가_된다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        let a = try unwrap(map.addCustomChild(of: map.rootId, question: "A", now: t0))
+        let b = try unwrap(map.addCustomChild(of: map.rootId, question: "B", now: t0))
+        let before = map[a]?.updatedAt
+        map.interruptPending(except: [b])
+        #expect(map.root.status == .error)
+        #expect(map[a]?.status == .error)
+        #expect(map[a]?.error == Integrity.interruptedMessage)
+        #expect(map[a]?.updatedAt == before)
+        #expect(map[b]?.status == .pending)
+    }
 }
 
 @Suite("무결성 복구")

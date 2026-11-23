@@ -12,6 +12,8 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
     @Published private(set) var map: MindMap
     /// 열 때 무결성 규칙으로 복구한 내역 (SPEC 7.5)
     @Published var repairedIssues: [IntegrityIssue] = []
+    /// 답변 요청이 진행 중인 노드. 실행 취소로 되돌린 대기 노드 중 여기에 없는 것은 중단 상태로 바꾼다.
+    var inFlight: Set<WID> = []
 
     init(map: MindMap = .new()) {
         self.map = map
@@ -47,7 +49,10 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
         undoManager.registerUndo(withTarget: self) { document in
             MainActor.assumeIsolated {
                 let current = document.map
-                document.map = previous
+                // 되돌린 상태의 대기 노드는 요청이 없으면 영영 기다리므로, 다시 시도할 수 있게 중단 상태로 바꾼다.
+                var restored = previous
+                restored.interruptPending(except: document.inFlight)
+                document.map = restored
                 document.registerUndo(restoring: current, actionName: actionName, undoManager: undoManager)
             }
         }

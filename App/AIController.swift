@@ -16,15 +16,21 @@ final class AIController {
     private var waiting: [CheckedContinuation<Void, Never>] = []
 
     func requestAnswer(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?) {
-        guard let context = ContextBuilder.answer(for: id, in: document.map) else { return }
+        guard !document.inFlight.contains(id),
+              let context = ContextBuilder.answer(for: id, in: document.map)
+        else { return }
         guard let provider else {
             document.perform("답변 실패", undoManager: undoManager) { $0.failRequest(id, message: Self.notConfigured) }
             notice = Self.notConfigured
             return
         }
+        document.inFlight.insert(id)
         Task {
             await acquire()
-            defer { release() }
+            defer {
+                release()
+                document.inFlight.remove(id)
+            }
             do {
                 let validated = try await retryingOnce {
                     let response = try await provider.answer(context)
