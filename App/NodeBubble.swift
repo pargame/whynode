@@ -75,19 +75,6 @@ struct NodeBubble: View {
     }
 
     private func answerBody(_ answer: String) -> some View {
-        answerText(answer)
-            .font(.callout)
-            .foregroundStyle(.primary)
-            .multilineTextAlignment(.leading)
-            .fixedSize(horizontal: false, vertical: true)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    /// AI 답변은 인라인 마크다운만 해석한다. `%@` 같은 문자열이 서식으로 해석되지 않게 LocalizedStringKey는 쓰지 않는다.
-    private func answerText(_ answer: String) -> Text {
-        if let attributed = try? AttributedString(markdown: answer, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
-            return Text(attributed)
-        }
-        return Text(verbatim: answer)
+        AnswerView(markdown: answer)
     }
 }

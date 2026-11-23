@@ -9,10 +9,12 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ├ WhyNodeApp      시작 화면 창 + DocumentGroup   ├ Model / Codec     .whynode 구조 · 저장 형식 (SPEC 7)
 ├ LauncherView    새 프로젝트 · 열기 · 최근 · v1   ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
 ├ MapScreen       캔버스 · 추가 질문 칩 · 메뉴      ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
-├ NodeBubble      원형 노드 표시                  ├ V1Import          v1 파일 변환 (SPEC 7.7)
+├ NodeBubble      원형 노드 표시
+├ AnswerView      답변 서식 블록 그리기                  ├ V1Import          v1 파일 변환 (SPEC 7.7)
 ├ AIController    요청 → 검증 → 문서 반영          ├ Context           AI 맥락 패키지 (SPEC 6.1)
 ├ SettingsStore   AI 설정 저장 · 프로바이더 생성   ├ Validation        응답 검증 · 중복 제거 (SPEC 6.4)
-├ AISetupView     첫 실행 안내 · 설정 화면         ├ Prompt / ResponseParsing  시스템 프롬프트 · JSON 추출
+├ AISetupView     첫 실행 안내 · 설정 화면         ├ Prompt / ResponseParsing  시스템 프롬프트(v2) · JSON 추출
+├ AnswerFormat      답변 서식 블록 · 인라인 해석 (SPEC 6.5)
 ├ WhyNodeDocument 파일 읽기/쓰기 · 실행 취소       ├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
 ├ Theme           라이트 · 다크 의미 색           ├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기 · 모델 목록 (macOS)
 ├ ACPClient         ③ agy 상시 연결 (agy acp, macOS)
@@ -27,8 +29,9 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 | 대상 | 방법 |
 | :--- | :--- |
-| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (32개) |
+| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (45개) |
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
+| 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 출력) |
 | 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>` → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음) |
 | 앱 실행 | `open WhyNode.app` (빌드 결과 바로가기). 이미 켜져 있으면 ⌘Q 후 다시 열어야 새 빌드가 뜸 |

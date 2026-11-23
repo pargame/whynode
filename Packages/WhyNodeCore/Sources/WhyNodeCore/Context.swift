@@ -73,7 +73,7 @@ public enum ContextBuilder {
     /// 요약이 없으면 답변의 첫 문장(최대 60자)을 대신 쓴다.
     public static func summary(of node: Node) -> String? {
         if let summary = node.summary, !summary.isEmpty { return summary }
-        guard let answer = node.answer?.trimmingCharacters(in: .whitespacesAndNewlines), !answer.isEmpty else { return nil }
+        guard let answer = node.answer.map(AnswerFormat.plainText)?.trimmingCharacters(in: .whitespacesAndNewlines), !answer.isEmpty else { return nil }
         let sentence = answer.split(maxSplits: 1, whereSeparator: { ".!?。\n".contains($0) }).first.map(String.init) ?? answer
         return String(sentence.prefix(summaryFallbackLength))
     }

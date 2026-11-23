@@ -84,11 +84,12 @@ public enum ResponseValidator {
         threshold: Double = defaultThreshold
     ) throws -> ValidatedAnswer {
         let answer = response.answer.trimmingCharacters(in: .whitespacesAndNewlines)
-        let summary = response.summary.trimmingCharacters(in: .whitespacesAndNewlines)
+        // 요약과 추가 질문은 한 줄로 쓰이므로 서식 기호를 걷어낸다 (SPEC 6.5).
+        let summary = AnswerFormat.plainText(response.summary).trimmingCharacters(in: .whitespacesAndNewlines)
         guard !answer.isEmpty else { throw ValidationError.emptyField("answer") }
         guard !summary.isEmpty else { throw ValidationError.emptyField("summary") }
 
-        let (kept, removed) = dedupe(response.suggestions, against: existingQuestions(for: id, in: map), threshold: threshold)
+        let (kept, removed) = dedupe(response.suggestions.map(AnswerFormat.plainText), against: existingQuestions(for: id, in: map), threshold: threshold)
         return ValidatedAnswer(answer: answer, summary: summary, suggestions: kept, refs: refs(response.refs, for: id, in: map), removed: removed)
     }
 
@@ -101,7 +102,7 @@ public enum ResponseValidator {
         var existing = existingQuestions(for: id, in: map)
         // 다시 받기는 기존 미사용 질문을 교체하므로, 사용된 질문과만 겹치지 않으면 된다.
         existing.append(contentsOf: map[id]?.suggestions.filter { $0.usedBy != nil }.map(\.text) ?? [])
-        return dedupe(response.suggestions, against: existing, threshold: threshold)
+        return dedupe(response.suggestions.map(AnswerFormat.plainText), against: existing, threshold: threshold)
     }
 
     /// 존재하지 않거나 자기 자신 · 부모 · 직계 자식을 가리키는 참조와 중복 참조를 제거한다.
