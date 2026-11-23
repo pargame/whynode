@@ -18,6 +18,10 @@ enum Theme {
     static let refEdge = Color.accentColor.opacity(0.45)
     /// 선 굵기(pt). 화면 좌표로 그리므로 확대 · 축소와 상관없이 같은 굵기로 보인다.
     static let edgeWidth: CGFloat = 1
+    /// 호버한 노드와 이웃의 테두리 · 선에 번지는 빛
+    static let glow = Color.accentColor
+    /// 호버 빛이 은은하게 켜지고 꺼지는 시간
+    static let glowAnimation = Animation.easeInOut(duration: 0.45)
 
     /// 불투명 바탕 위에 겹치는 상태 색
     static func tint(for status: NodeStatus) -> Color {

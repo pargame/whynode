@@ -72,8 +72,8 @@ enum SnapshotRenderer {
         let failed = map.addCustomChild(of: map.rootId, question: "BVH는 어떻게 만들까? 공간을 나누는 기준과 깊이는 어떻게 정하고, 동적으로 움직이는 물체가 많은 장면에서는 매 프레임 다시 만들어야 할까?", now: now)!
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
-        func bubble(_ node: Node, focused: Bool) -> some View {
-            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, onRetry: {})
+        func bubble(_ node: Node, focused: Bool, highlighted: Bool = false) -> some View {
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, isHighlighted: highlighted, onRetry: {})
         }
         // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
         let content = HStack(alignment: .top, spacing: 28) {
@@ -83,6 +83,8 @@ enum SnapshotRenderer {
             bubble(map[failed]!, focused: false)
             bubble(map[failed]!, focused: true)
             bubble(MindMap.new(now: now).root, focused: false)
+            // 호버 빛
+            bubble(map.root, focused: false, highlighted: true)
         }
         .overlay(alignment: .top) {
             Rectangle().fill(.red.opacity(0.5)).frame(height: 1).offset(y: NodeBubble.titleCenter)

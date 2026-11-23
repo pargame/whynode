@@ -99,12 +99,14 @@ struct MapScreen: View {
                 isQuiet: canvas.isMoving,
                 textScale: textScale,
                 zoom: canvas.effectiveScale,
+                isHighlighted: isHighlighted(node.id),
                 onRetry: { retry(node.id) }
             )
             .equatable()
             .scaleEffect(isDragging ? 1.04 : 1)
             .shadow(color: .black.opacity(isDragging ? 0.25 : 0), radius: 16, y: 8)
             .animation(.spring(duration: 0.3, bounce: 0.3), value: isDragging)
+            .onHover { inside in hover(node.id, inside) }
             .onTapGesture { tap(node) }
             .gesture(moveGesture(for: node))
             .contextMenu { menu(for: node) }
@@ -142,38 +144,41 @@ struct MapScreen: View {
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
-    /// 칩 영역을 카드 폭 안에서 두 열로 나눈다.
     private static let chipSpacing: CGFloat = 8
-    private static let chipColumnWidth = (NodeBubble.expandedWidth - chipSpacing) / 2
     private static let chipPadding: CGFloat = 14
+    /// 추가 질문 칩 글자 영역의 최대 폭. 마지막 줄의 반쪽 칩 두 개를 합친 폭과 같다.
+    private static let chipTextMaxWidth = NodeBubble.expandedWidth - 40
+    private static let halfChipTextWidth = (chipTextMaxWidth + 2 * chipPadding - chipSpacing) / 2 - 2 * chipPadding
 
-    /// 왼쪽 열은 추가 질문과 직접 질문, 오른쪽 열은 미사용 추가 질문을 새 질문 3개로 바꾸는 버튼이다 (SPEC 2.3).
+    /// 추가 질문은 한 줄에 하나씩, 맨 아래 줄만 `직접 질문…`과 `다른 질문 3개`로 반씩 나눈다 (SPEC 2.3).
     private func suggestionChips(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
-        HStack(alignment: .top, spacing: Self.chipSpacing) {
-            VStack(spacing: Self.chipSpacing) {
-                ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
-                }
-                chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
-                    ask(.custom(parent: node.id))
-                }
+        VStack(spacing: Self.chipSpacing) {
+            ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
+                chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
             }
             let suggesting = ai.suggesting.contains(node.id)
-            chip(Text("\(Image(systemName: "arrow.clockwise"))  다른 질문 3개").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
-                ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
+            HStack(spacing: Self.chipSpacing) {
+                chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                    ask(.custom(parent: node.id))
+                }
+                chip(Text("\(Image(systemName: "arrow.clockwise"))  다른 질문 3개").foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                    ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
+                }
+                .disabled(suggesting)
+                .opacity(suggesting ? 0.5 : 1)
             }
-            .disabled(suggesting)
-            .opacity(suggesting ? 0.5 : 1)
         }
     }
 
-    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, action: @escaping () -> Void) -> some View {
+    /// `width`가 없으면 글자 길이에 맞춰 최대 폭까지 늘어나고, 있으면 그 폭으로 고정한다.
+    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, width: CGFloat? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
                 .font(.scaled(.callout, textScale))
                 .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .frame(width: Self.chipColumnWidth - 2 * Self.chipPadding)
+                .lineLimit(2)
+                .frame(width: width)
+                .frame(maxWidth: width == nil ? Self.chipTextMaxWidth : nil)
                 .padding(.horizontal, Self.chipPadding)
                 .padding(.vertical, 9)
                 .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
@@ -181,6 +186,24 @@ struct MapScreen: View {
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
         }
         .buttonStyle(.plain)
+    }
+
+    /// 호버한 노드 자신과, 트리 선 · 참조선으로 바로 이어진 노드
+    private func isHighlighted(_ id: WID) -> Bool {
+        guard let hoveredId = canvas.hoveredId, let hovered = map[hoveredId], let node = map[id] else { return false }
+        return id == hoveredId || node.parentId == hoveredId || hovered.parentId == id
+            || node.refs.contains { $0.nodeId == hoveredId } || hovered.refs.contains { $0.nodeId == id }
+    }
+
+    /// 빛은 갑자기 켜지지 않고 0.5초 안에 은은하게 밝아지고 옅어진다.
+    private func hover(_ id: WID, _ inside: Bool) {
+        withAnimation(Theme.glowAnimation) {
+            if inside {
+                canvas.hoveredId = id
+            } else if canvas.hoveredId == id {
+                canvas.hoveredId = nil
+            }
+        }
     }
 
     /// 포커스 노드에 새 추가 질문이 떠 있을 때만 주변을 낮춘다 (SPEC 2.4).

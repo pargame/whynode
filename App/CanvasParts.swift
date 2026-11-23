@@ -36,6 +36,8 @@ struct EdgeItem: Identifiable {
     let from: CGPoint
     let to: CGPoint
     let dimmed: Bool
+    /// 호버한 노드에 닿은 선
+    var highlighted = false
 }
 
 /// 화면 주사율에 맞춰 매 프레임 호출한다. 시뮬레이션이 도는 동안만 켠다.

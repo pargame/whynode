@@ -16,6 +16,8 @@ final class CanvasModel {
     var dragging: (id: WID, translation: CGSize)?
     /// 시뮬레이션이 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
     var simulation: ForceSimulation?
+    /// 마우스를 올린 노드. 이 노드와 이웃의 테두리 · 선을 은은하게 밝힌다.
+    var hoveredId: WID?
     /// 펼친 노드 안에서 핀치 중인 노드와 배율. 손을 떼면 노드의 글자 크기로 확정된다.
     var textPinch: (id: WID, factor: CGFloat)?
     /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
@@ -135,10 +137,22 @@ struct EdgeLayer: View {
             .allowsHitTesting(false)
         } else {
             ForEach(items) { edge in
-                EdgeShape(from: edge.from, to: edge.to)
-                    .stroke(edge.kind == .tree ? Theme.edge : Theme.refEdge, style: Self.style(edge.kind))
-                    .opacity(edge.dimmed ? 0.25 : 1)
-                    .allowsHitTesting(false)
+                ZStack {
+                    EdgeShape(from: edge.from, to: edge.to)
+                        .stroke(edge.kind == .tree ? Theme.edge : Theme.refEdge, style: Self.style(edge.kind))
+                        .opacity(edge.dimmed && !edge.highlighted ? 0.25 : 1)
+                    if edge.highlighted {
+                        ZStack {
+                            EdgeShape(from: edge.from, to: edge.to)
+                                .stroke(Theme.glow.opacity(0.6), style: StrokeStyle(lineWidth: 5, lineCap: .round))
+                                .blur(radius: 3)
+                            EdgeShape(from: edge.from, to: edge.to)
+                                .stroke(Theme.glow.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: edge.kind == .tree ? [] : [6, 5]))
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .allowsHitTesting(false)
             }
         }
     }
@@ -149,12 +163,14 @@ struct EdgeLayer: View {
 
     private var edgeItems: [EdgeItem] {
         var items: [EdgeItem] = []
+        let hovered = canvas.hoveredId
         for node in map.nodes {
             guard let pid = node.parentId, let parent = map[pid] else { continue }
             items.append(EdgeItem(
                 id: "tree:\(node.id)", kind: .tree,
                 from: canvas.screenPoint(of: parent), to: canvas.screenPoint(of: node),
-                dimmed: isDimmed(node.id) && isDimmed(pid)
+                dimmed: isDimmed(node.id) && isDimmed(pid),
+                highlighted: hovered != nil && (node.id == hovered || pid == hovered)
             ))
         }
         for node in map.nodes {
@@ -163,7 +179,8 @@ struct EdgeLayer: View {
                 items.append(EdgeItem(
                     id: "ref:\(node.id):\(ref.nodeId)", kind: .ref,
                     from: canvas.screenPoint(of: node), to: canvas.screenPoint(of: target),
-                    dimmed: isDimmed(node.id) && isDimmed(target.id)
+                    dimmed: isDimmed(node.id) && isDimmed(target.id),
+                highlighted: hovered != nil && (node.id == hovered || target.id == hovered)
                 ))
             }
         }

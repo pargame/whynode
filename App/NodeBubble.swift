@@ -20,12 +20,14 @@ struct NodeBubble: View, Equatable {
     var textScale: CGFloat = 1
     /// 화면 배율. 노드는 배율만큼 커지고 작아지지만 테두리는 화면에서 같은 굵기로 보이도록 나눠 준다.
     var zoom: CGFloat = 1
+    /// 호버한 노드이거나 그 이웃이면 테두리 안쪽으로 빛이 번진다.
+    var isHighlighted = false
     let onRetry: () -> Void
 
     /// 위치가 바뀌는 매 프레임마다 본문을 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
     static func == (lhs: NodeBubble, rhs: NodeBubble) -> Bool {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isDimmed == rhs.isDimmed
-            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale && lhs.zoom == rhs.zoom
+            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale && lhs.zoom == rhs.zoom && lhs.isHighlighted == rhs.isHighlighted
     }
 
     /// 원 안에 들어가는 질문 줄 수. 기본 크기에서 4줄이 차지하는 높이를 넘지 않도록 글자가 커지면 줄인다.
@@ -74,6 +76,19 @@ struct NodeBubble: View, Equatable {
         .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: (isFocused ? 2.5 : 1) / zoom))
         // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
         .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
+        .overlay {
+            // 프레넬 효과처럼 가장자리가 가장 밝고 안쪽으로 갈수록 옅어지는 빛. 테두리 굵기처럼 화면 배율과 상관없이 같게 보인다.
+            if isHighlighted {
+                ZStack {
+                    shape.stroke(Theme.glow.opacity(0.7), lineWidth: 10 / zoom)
+                        .blur(radius: 6 / zoom)
+                        .clipShape(shape)
+                    shape.stroke(Theme.glow.opacity(0.9), lineWidth: 1.5 / zoom)
+                }
+                .allowsHitTesting(false)
+                .transition(.opacity)
+            }
+        }
         .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
         .contentShape(shape)
     }

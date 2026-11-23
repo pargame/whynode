@@ -11,8 +11,8 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
     /// 루트 쪽으로 모으는 힘
     public var gravity: Double
 
-    /// 기본값은 슬라이더 가운데에 오도록 각 범위의 중간값으로 둔다.
-    public static let `default` = PhysicsSettings(repel: 5, tension: 1, linkDistance: 40, gravity: 0.8)
+    /// 주인이 실제로 맞춰 본 값. 범위는 이전 기본값(5 / 1 / 40 / 0.8)의 0~2배로 잡았다.
+    public static let `default` = PhysicsSettings(repel: 1, tension: 2, linkDistance: 50, gravity: 1)
 
     public static let repelRange: ClosedRange<Double> = 0...10
     public static let tensionRange: ClosedRange<Double> = 0...2
