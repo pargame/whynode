@@ -26,6 +26,11 @@ struct WhyNodeApp: App {
                 .environment(settings)
         }
         .defaultLaunchBehavior(.suppressed)
+        // 문서 창은 화면의 사용 가능한 영역을 가득 채운 창으로 연다.
+        .defaultWindowPlacement { _, context in
+            let visible = context.defaultDisplay.visibleRect
+            return WindowPlacement(visible.origin, size: visible.size)
+        }
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {

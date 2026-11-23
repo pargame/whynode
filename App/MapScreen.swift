@@ -13,8 +13,8 @@ struct MapScreen: View {
     @State private var offset: CGSize = .zero
     @GestureState private var panDelta: CGSize = .zero
     @GestureState private var zoomDelta: CGFloat = 1
+    /// 포커스는 최대 하나이며, 포커스된 노드만 펼쳐진다.
     @State private var focusedId: WID?
-    @State private var expanded: Set<WID> = []
     @State private var prompt: PromptRequest?
     @State private var promptText = ""
     @State private var importError: String?
@@ -38,31 +38,22 @@ struct MapScreen: View {
                 edges(center: center)
 
                 ForEach(map.nodes) { node in
-                    NodeBubble(
-                        node: node,
-                        isExpanded: expanded.contains(node.id),
-                        isFocused: focusedId == node.id,
-                        isDimmed: isDimmed(node.id),
-                        isSuggesting: ai.suggesting.contains(node.id),
-                        onRetry: { retry(node.id) },
-                        onCustomQuestion: { ask(.custom(parent: node.id)) }
-                    )
-                    .scaleEffect(effectiveScale)
-                    .position(screen(node.position, center: center))
-                    .onTapGesture { tap(node) }
-                    .gesture(moveGesture(for: node, center: center))
-                    .contextMenu { menu(for: node) }
-                    .zIndex(focusedId == node.id ? 2 : expanded.contains(node.id) ? 1 : 0)
-                }
-
-                if let focusedId, let node = map[focusedId], node.status == .done, expanded.contains(focusedId) {
-                    suggestionChips(for: node, center: center)
-                        .zIndex(3)
+                    // 크기가 없는 기준점을 노드 좌표(질문의 중심)에 두고, 노드는 그 위쪽 가운데에 매단다.
+                    // 펼쳐져도 위쪽 기준이 그대로라 질문이 제자리에 남는다.
+                    Color.clear
+                        .frame(width: 0, height: 0)
+                        .overlay(alignment: .top) {
+                            nodeStack(node)
+                                .fixedSize()
+                                .scaleEffect(effectiveScale, anchor: .top)
+                                .offset(y: -NodeBubble.titleCenter * effectiveScale)
+                        }
+                        .position(screen(node.position, center: center))
+                        .zIndex(focusedId == node.id ? 2 : 0)
                 }
             }
             .gesture(zoomGesture)
-            .animation(.easeInOut(duration: 0.25), value: focusedId)
-            .animation(.easeInOut(duration: 0.25), value: expanded)
+            .animation(.spring(duration: 0.35, bounce: 0.15), value: focusedId)
         }
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
@@ -124,39 +115,57 @@ struct MapScreen: View {
         .allowsHitTesting(false)
     }
 
-    // 추가 질문 칩: 포커스 노드 주위에 띄운다
+    // 노드와 추가 질문
 
-    private func suggestionChips(for node: Node, center: CGPoint) -> some View {
-        let unused = node.suggestions.filter { $0.usedBy == nil }
-        let origin = screen(node.position, center: center)
-        // 펼친 노드 테두리 바깥에 칩이 놓이도록 반지름을 노드 크기에 맞춘다.
-        let radius = NodeBubble.expandedDiameter / 2 * effectiveScale + 56
-        return ForEach(Array(unused.enumerated()), id: \.element.id) { index, suggestion in
-            let angle = -Double.pi / 2 + (Double(index) - Double(unused.count - 1) / 2) * 0.75 + .pi
-            Button {
-                pick(suggestion, of: node.id)
-            } label: {
-                Text(suggestion.text)
-                    .font(.callout)
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                    .frame(maxWidth: 240)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 9)
-                    .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
-                    .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
-                    .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+    /// 노드 카드와, 포커스된 경우 그 아래에 이어지는 추가 질문 칩
+    private func nodeStack(_ node: Node) -> some View {
+        let focused = focusedId == node.id
+        return VStack(spacing: 12) {
+            NodeBubble(
+                node: node,
+                isFocused: focused,
+                isDimmed: isDimmed(node.id),
+                isSuggesting: ai.suggesting.contains(node.id),
+                onRetry: { retry(node.id) },
+                onCustomQuestion: { ask(.custom(parent: node.id)) }
+            )
+            .onTapGesture { tap(node) }
+            .gesture(moveGesture(for: node))
+            .contextMenu { menu(for: node) }
+
+            if focused, node.status == .done {
+                suggestionChips(for: node)
+                    .transition(.opacity.combined(with: .move(edge: .top)))
             }
-            .buttonStyle(.plain)
-            .position(x: origin.x + cos(angle) * radius * 1.25, y: origin.y + sin(angle) * radius)
-            .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    private func suggestionChips(for node: Node) -> some View {
+        VStack(spacing: 8) {
+            ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
+                Button {
+                    pick(suggestion, of: node.id)
+                } label: {
+                    Text(suggestion.text)
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .lineLimit(2)
+                        .frame(maxWidth: NodeBubble.expandedWidth - 40)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 9)
+                        .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
+                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
+                        .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+                }
+                .buttonStyle(.plain)
+            }
         }
     }
 
     /// 포커스 노드에 새 추가 질문이 떠 있을 때만 주변을 낮춘다 (SPEC 2.4).
     private func isDimmed(_ id: WID) -> Bool {
         guard let focusedId, focusedId != id, let focused = map[focusedId],
-              expanded.contains(focusedId), focused.status == .done,
+              focused.status == .done,
               focused.suggestions.contains(where: { $0.usedBy == nil })
         else { return false }
         return true
@@ -169,12 +178,8 @@ struct MapScreen: View {
             ask(.root)
             return
         }
-        focusedId = node.id
-        if expanded.contains(node.id) {
-            expanded.remove(node.id)
-        } else {
-            expanded.insert(node.id)
-        }
+        // 포커스된 노드를 다시 누르면 접고, 다른 노드를 누르면 포커스를 옮긴다.
+        focusedId = focusedId == node.id ? nil : node.id
     }
 
     private func pick(_ suggestion: Suggestion, of parentId: WID) {
@@ -187,7 +192,6 @@ struct MapScreen: View {
 
     private func start(_ id: WID) {
         focusedId = id
-        expanded.insert(id)
         ai.requestAnswer(for: id, in: document, undoManager: undoManager)
     }
 
@@ -277,8 +281,8 @@ struct MapScreen: View {
     }
 
     /// 노드를 끌어 옮기면 자동 배치에서 제외된다. 드래그가 끝날 때 한 번만 실행 취소에 등록한다.
-    private func moveGesture(for node: Node, center: CGPoint) -> some Gesture {
-        DragGesture(minimumDistance: 4)
+    private func moveGesture(for node: Node) -> some Gesture {
+        DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onEnded { value in
                 let x = node.position.x + value.translation.width / effectiveScale
                 let y = node.position.y + value.translation.height / effectiveScale

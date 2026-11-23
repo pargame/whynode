@@ -9,7 +9,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ├ WhyNodeApp      시작 화면 창 + DocumentGroup   ├ Model / Codec     .whynode 구조 · 저장 형식 (SPEC 7)
 ├ LauncherView    새 프로젝트 · 열기 · 최근 · v1   ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
 ├ MapScreen       캔버스 · 추가 질문 칩 · 메뉴      ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
-├ NodeBubble      원형 노드 표시
+├ NodeBubble      노드 (원 → 포커스 시 아래로 넓어지는 카드)
 ├ AnswerView      답변 서식 블록 그리기                  ├ V1Import          v1 파일 변환 (SPEC 7.7)
 ├ AIController    요청 → 검증 → 문서 반영          ├ Context           AI 맥락 패키지 (SPEC 6.1)
 ├ SettingsStore   AI 설정 저장 · 프로바이더 생성   ├ Validation        응답 검증 · 중복 제거 (SPEC 6.4)
@@ -51,6 +51,5 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ## 다음 할 일
 
 1. **agy 상시 연결 토큰**: 상시 연결은 빠르지만 세션마다 agy 기본 지시문이 캐시 없이 실려 호출당 토큰이 1회 실행보다 많다. ACP `_meta.antigravity.systemPrompt.append` 등으로 줄일 수 있는지 확인. 앱 화면에서의 실제 사용 확인도 필요.
-2. **주인 결정 대기**: 펼친 노드를 원형으로 유지할지, 펼칠 때만 둥근 카드로 바꿀지(CONCEPT ③ 변경 여부).
-3. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 힘 기반 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
-4. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).
+2. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 힘 기반 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
+3. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).

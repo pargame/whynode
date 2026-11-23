@@ -47,23 +47,19 @@ enum SnapshotRenderer {
         let failed = map.addCustomChild(of: map.rootId, question: "BVH는 어떻게 만들까?", now: now)!
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
-        let content = HStack(alignment: .center, spacing: 28) {
-            NodeBubble(node: map.root, isExpanded: true, isFocused: true, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
-            VStack(spacing: 24) {
-                NodeBubble(node: map.root, isExpanded: false, isFocused: false, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
-                NodeBubble(node: map[pending]!, isExpanded: false, isFocused: false, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
-            }
-            VStack(spacing: 24) {
-                NodeBubble(node: MindMap.new(now: now).root, isExpanded: false, isFocused: false, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
-                NodeBubble(node: map[failed]!, isExpanded: true, isFocused: false, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
-            }
-            Text("추가 질문 칩 예시")
-                .font(.callout)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 14)
-                .padding(.vertical, 9)
-                .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
-                .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
+        func bubble(_ node: Node, focused: Bool) -> some View {
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
+        }
+        // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
+        let content = HStack(alignment: .top, spacing: 28) {
+            bubble(map.root, focused: false)
+            bubble(map.root, focused: true)
+            bubble(map[pending]!, focused: false)
+            bubble(map[failed]!, focused: true)
+            bubble(MindMap.new(now: now).root, focused: false)
+        }
+        .overlay(alignment: .top) {
+            Rectangle().fill(.red.opacity(0.5)).frame(height: 1).offset(y: NodeBubble.titleCenter)
         }
         .padding(32)
         .background(Theme.canvas)
