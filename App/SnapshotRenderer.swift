@@ -20,7 +20,7 @@ enum SnapshotRenderer {
         exit(0)
     }
 
-    /// 펼친 물리 정리 패널
+    /// 펼친 시뮬레이션 패널
     private static func renderPhysics(scheme: ColorScheme, to url: URL) {
         let content = HStack(alignment: .bottom, spacing: 24) {
             PhysicsControl(settings: .constant(.default), isRunning: false, onToggle: {})
@@ -67,7 +67,7 @@ enum SnapshotRenderer {
         )
         map.applyAnswer(map.rootId, answered, generation: MockProvider().generation(), now: now)
         let pending = map.addChild(of: map.rootId, suggestion: map.root.suggestions[0].id, now: now)!
-        let failed = map.addCustomChild(of: map.rootId, question: "BVH는 어떻게 만들까?", now: now)!
+        let failed = map.addCustomChild(of: map.rootId, question: "BVH는 어떻게 만들까? 공간을 나누는 기준과 깊이는 어떻게 정하고, 동적으로 움직이는 물체가 많은 장면에서는 매 프레임 다시 만들어야 할까?", now: now)!
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
         func bubble(_ node: Node, focused: Bool) -> some View {
@@ -78,6 +78,7 @@ enum SnapshotRenderer {
             bubble(map.root, focused: false)
             bubble(map.root, focused: true)
             bubble(map[pending]!, focused: false)
+            bubble(map[failed]!, focused: false)
             bubble(map[failed]!, focused: true)
             bubble(MindMap.new(now: now).root, focused: false)
         }

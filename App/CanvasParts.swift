@@ -38,7 +38,7 @@ struct EdgeItem: Identifiable {
     let dimmed: Bool
 }
 
-/// 화면 주사율에 맞춰 매 프레임 호출한다. 물리 정리가 도는 동안만 켠다.
+/// 화면 주사율에 맞춰 매 프레임 호출한다. 시뮬레이션이 도는 동안만 켠다.
 final class FrameTicker: NSObject {
     private var link: CADisplayLink?
     private var onFrame: (() -> Void)?

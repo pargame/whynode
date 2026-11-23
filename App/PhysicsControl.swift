@@ -1,7 +1,7 @@
 import SwiftUI
 import WhyNodeCore
 
-/// 캔버스 오른쪽 아래의 물리 정리 버튼 (SPEC 2.6). 평소에는 버튼만 보이고,
+/// 캔버스 오른쪽 아래의 시뮬레이션 버튼 (SPEC 2.6). 평소에는 버튼만 보이고,
 /// 마우스를 올리거나 화살표를 누르면 위로 펼쳐지며 조절값 슬라이더 · 입력칸이 나타난다.
 struct PhysicsControl: View {
     @Binding var settings: PhysicsSettings
@@ -37,7 +37,7 @@ struct PhysicsControl: View {
     private var header: some View {
         HStack(spacing: 4) {
             Button(action: onToggle) {
-                Label(isRunning ? "멈춤" : "물리 정리", systemImage: isRunning ? "stop.fill" : "atom")
+                Label(isRunning ? "멈춤" : "시뮬레이션", systemImage: isRunning ? "stop.fill" : "atom")
                     .contentTransition(.symbolEffect(.replace))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -67,7 +67,7 @@ struct PhysicsControl: View {
             row("링크 거리", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 10)
             row("중심력", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
             HStack {
-                Text("루트는 고정, 나머지는 모두 움직입니다.")
+                Text("루트는 고정됩니다.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()

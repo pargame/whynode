@@ -16,6 +16,7 @@ struct NodeBubble: View {
     let isSuggesting: Bool
     let onRetry: () -> Void
 
+    /// 원 안에서 보이는 질문(최대 4줄)의 높이. 펼쳐서 줄이 늘어도 이 값으로 위 여백을 정해 첫 줄이 움직이지 않는다.
     @State private var titleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
@@ -25,14 +26,14 @@ struct NodeBubble: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text(node.question.isEmpty ? "주제를 입력하세요" : node.question)
-                .font(.callout.weight(.medium))
+            // 원에서는 4줄까지만 보이고, 펼치면 질문 전체를 보여준다.
+            title(lineLimit: showsDetail ? nil : 4)
                 .foregroundStyle(node.question.isEmpty ? .secondary : .primary)
-                .multilineTextAlignment(.center)
-                .lineLimit(4)
-                .frame(width: Self.titleWidth)
-                .fixedSize(horizontal: false, vertical: true)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleHeight = $0 }
+                .background {
+                    title(lineLimit: 4)
+                        .hidden()
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleHeight = $0 }
+                }
 
             if showsDetail {
                 detail
@@ -60,6 +61,15 @@ struct NodeBubble: View {
         .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
         .shadow(color: .black.opacity(isDimmed ? 0.05 : 0.18), radius: isFocused ? 10 : 5, y: 2)
         .contentShape(shape)
+    }
+
+    private func title(lineLimit: Int?) -> some View {
+        Text(node.question.isEmpty ? "주제를 입력하세요" : node.question)
+            .font(.callout.weight(.medium))
+            .multilineTextAlignment(.center)
+            .lineLimit(lineLimit)
+            .frame(width: Self.titleWidth)
+            .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder

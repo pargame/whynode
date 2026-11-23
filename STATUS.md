@@ -14,7 +14,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ├ AIController    요청 → 검증 → 문서 반영          ├ Context           AI 맥락 패키지 (SPEC 6.1)
 ├ SettingsStore   AI 설정 저장 · 프로바이더 생성   ├ Validation        응답 검증 · 중복 제거 (SPEC 6.4)
 ├ AISetupView     첫 실행 안내 · 설정 화면         ├ Prompt / ResponseParsing  시스템 프롬프트(v2) · JSON 추출
-├ PhysicsControl  물리 정리 버튼 · 조절값 패널     ├ Physics           물리 정리 시뮬레이션 · 조절값 (SPEC 2.6)
+├ PhysicsControl  시뮬레이션 버튼 · 조절값 패널     ├ Physics           시뮬레이션 · 조절값 (SPEC 2.6)
 ├ AnswerFormat      답변 서식 블록 · 인라인 해석 (SPEC 6.5)
 ├ WhyNodeDocument 파일 읽기/쓰기 · 실행 취소       ├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
 ├ Theme           라이트 · 다크 의미 색
@@ -24,7 +24,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ```
 
 * **데이터 흐름**: 화면 동작 → `WhyNodeDocument.perform`(UndoManager 등록 = 자동 저장 트리거) → `MindMap` 변경. AI가 필요하면 `AIController`가 `ContextBuilder`로 맥락을 만들어 프로바이더에 보내고, `ResponseValidator`를 거쳐 `MindMap.applyAnswer`로 반영합니다.
-* **물리 정리**: 버튼을 누르면 `MapScreen`이 `ForceSimulation`을 만들고 `FrameTicker`로 매 프레임 한 틱씩 돌려 화면에만 반영하다가, 멈추는 순간 `MindMap.arrange`로 Undo 1회 반영합니다.
+* **시뮬레이션**: 버튼을 누르면 `MapScreen`이 `ForceSimulation`을 만들고 `FrameTicker`로 매 프레임 한 틱씩 돌려 화면에만 반영하다가, 멈추는 순간 `MindMap.arrange`로 Undo 1회 반영합니다.
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값은 UserDefaults(`ai.settings`, `physics.settings`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
 
@@ -55,6 +55,6 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 1. **agy 상시 연결 토큰**: 상시 연결은 빠르지만 세션마다 agy 기본 지시문이 캐시 없이 실려 호출당 토큰이 1회 실행보다 많다. ACP `_meta.antigravity.systemPrompt.append` 등으로 줄일 수 있는지 확인. 앱 화면에서의 실제 사용 확인도 필요.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
-3. **물리 정리 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
+3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 새 노드 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
 5. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).

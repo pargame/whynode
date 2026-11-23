@@ -1,6 +1,6 @@
 import Foundation
 
-/// 물리 정리의 조절값 (SPEC 2.6). 화면의 슬라이더 · 입력칸과 1:1로 대응한다.
+/// 시뮬레이션의 조절값 (SPEC 2.6). 화면의 슬라이더 · 입력칸과 1:1로 대응한다.
 public struct PhysicsSettings: Codable, Equatable, Sendable {
     /// 노드끼리 밀어내는 힘
     public var repel: Double

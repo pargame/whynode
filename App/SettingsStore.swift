@@ -10,7 +10,7 @@ final class SettingsStore {
 
     private(set) var ai: AISettings?
 
-    /// 물리 정리 조절값 (SPEC 2.6). 프로젝트와 상관없이 앱 전체에서 유지한다.
+    /// 시뮬레이션 조절값 (SPEC 2.6). 프로젝트와 상관없이 앱 전체에서 유지한다.
     var physics: PhysicsSettings = .default {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(physics), forKey: Self.physicsKey) }
     }

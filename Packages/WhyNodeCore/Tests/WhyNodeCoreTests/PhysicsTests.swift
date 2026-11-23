@@ -26,7 +26,7 @@ private func distance(_ a: (x: Double, y: Double), _ b: (x: Double, y: Double)) 
     ((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y)).squareRoot()
 }
 
-@Suite("물리 정리")
+@Suite("시뮬레이션")
 struct PhysicsTests {
     @Test func 안정되면_스스로_멈춘다() {
         var sim = ForceSimulation(map: crowdedMap(), settings: .default)

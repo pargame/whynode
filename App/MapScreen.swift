@@ -24,10 +24,10 @@ struct MapScreen: View {
     @State private var promptText = ""
     @State private var importError: String?
     @State private var showSettings = false
-    /// 물리 정리가 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
+    /// 시뮬레이션이 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
     @State private var simulation: ForceSimulation?
     @State private var ticker = FrameTicker()
-    /// 정리 중에 잡은 노드의 시작 위치(월드 좌표)
+    /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
     @State private var holdOrigin: CGPoint?
 
     static let minScale: CGFloat = 0.2
@@ -130,7 +130,7 @@ struct MapScreen: View {
         min(max(value, minScale), maxScale)
     }
 
-    /// 정리 중에는 시뮬레이션 위치를, 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
+    /// 시뮬레이션 중에는 시뮬레이션 위치를, 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
     private func worldPoint(of node: Node) -> CGPoint {
         if let p = simulation?.position(of: node.id) { return CGPoint(x: p.x, y: p.y) }
         var point = CGPoint(x: node.position.x, y: node.position.y)
@@ -241,7 +241,7 @@ struct MapScreen: View {
     // 동작
 
     private func tap(_ node: Node) {
-        // 정리 중에는 노드가 펼쳐지면 배치가 흐트러지므로 포커스를 주지 않는다.
+        // 시뮬레이션 중에는 노드가 펼쳐지면 배치가 흐트러지므로 포커스를 주지 않는다.
         guard simulation == nil else { return }
         if node.status == .empty {
             ask(.root)
@@ -382,7 +382,7 @@ struct MapScreen: View {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
                 withoutAnimation { dragging = (node.id, value.translation) }
-                // 정리 중에는 잡은 노드를 손가락 위치에 고정하고, 이어진 노드가 딸려 오게 한다.
+                // 시뮬레이션 중에는 잡은 노드를 손가락 위치에 고정하고, 이어진 노드가 딸려 오게 한다.
                 guard simulation != nil else { return }
                 if holdOrigin == nil { holdOrigin = worldPoint(of: node) }
                 if let origin = holdOrigin {
@@ -410,10 +410,10 @@ struct MapScreen: View {
             }
     }
 
-    // 물리 정리
+    // 시뮬레이션
 
     private var physicsBinding: Binding<PhysicsSettings> {
-        // 설정은 앱 전체가 공유하므로, 다른 창이 아닌 조작한 창에서만 정리를 돌린다.
+        // 설정은 앱 전체가 공유하므로, 다른 창이 아닌 조작한 창에서만 시뮬레이션을 돌린다.
         Binding(get: { settings.physics }, set: {
             settings.physics = $0
             physicsChanged()
@@ -445,7 +445,7 @@ struct MapScreen: View {
         ticker.stop()
         guard let positions = simulation?.positions else { return }
         withoutAnimation {
-            document.perform("물리 정리", undoManager: undoManager) { $0.arrange(positions) }
+            document.perform("시뮬레이션", undoManager: undoManager) { $0.arrange(positions) }
             simulation = nil
             holdOrigin = nil
         }
