@@ -9,10 +9,15 @@ struct MapScreen: View {
     @Environment(SettingsStore.self) private var settings
 
     @State private var ai = AIController()
+    /// 확정된 화면 배율 · 이동량. 제스처 중의 값은 아래 live 값에 따로 둔다.
     @State private var scale: CGFloat = 1
     @State private var offset: CGSize = .zero
-    @GestureState private var panDelta: CGSize = .zero
-    @GestureState private var zoomDelta: CGFloat = 1
+    @State private var livePan: CGSize = .zero
+    @State private var liveZoom: CGFloat = 1
+    @State private var zoomAnchor: CGPoint?
+    /// 끌고 있는 노드와 화면상 이동량. 손을 떼기 전까지 노드와 선이 손가락을 따라온다.
+    @State private var dragging: (id: WID, translation: CGSize)?
+    @State private var viewSize: CGSize = .zero
     /// 포커스는 최대 하나이며, 포커스된 노드만 펼쳐진다.
     @State private var focusedId: WID?
     @State private var prompt: PromptRequest?
@@ -20,41 +25,68 @@ struct MapScreen: View {
     @State private var importError: String?
     @State private var showSettings = false
 
+    static let minScale: CGFloat = 0.2
+    static let maxScale: CGFloat = 3
+    private static let focusSpring = Animation.spring(duration: 0.35, bounce: 0.15)
+
     private var map: MindMap { document.map }
-    private var effectiveScale: CGFloat { min(max(scale * zoomDelta, 0.2), 3) }
+    private var center: CGPoint { CGPoint(x: viewSize.width / 2, y: viewSize.height / 2) }
+    private var effectiveScale: CGFloat { Self.clamp(scale * liveZoom) }
+
+    /// 핀치 중에는 손가락 아래의 지점이 그대로 있도록 이동량을 보정한다.
     private var effectiveOffset: CGSize {
-        CGSize(width: offset.width + panDelta.width, height: offset.height + panDelta.height)
+        guard let anchor = zoomAnchor else {
+            return CGSize(width: offset.width + livePan.width, height: offset.height + livePan.height)
+        }
+        let ratio = effectiveScale / scale
+        return CGSize(
+            width: anchor.x - center.x - (anchor.x - center.x - offset.width) * ratio,
+            height: anchor.y - center.y - (anchor.y - center.y - offset.height) * ratio
+        )
     }
 
     var body: some View {
-        GeometryReader { geometry in
-            let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
-            ZStack {
-                Theme.canvas
-                    .contentShape(Rectangle())
-                    .gesture(panGesture)
-                    .onTapGesture { focusedId = nil }
+        ZStack {
+            Theme.canvas
+                .contentShape(Rectangle())
+                .gesture(panGesture)
+                .onTapGesture { focusedId = nil }
 
-                edges(center: center)
-
-                ForEach(map.nodes) { node in
-                    // 크기가 없는 기준점을 노드 좌표(질문의 중심)에 두고, 노드는 그 위쪽 가운데에 매단다.
-                    // 펼쳐져도 위쪽 기준이 그대로라 질문이 제자리에 남는다.
-                    Color.clear
-                        .frame(width: 0, height: 0)
-                        .overlay(alignment: .top) {
-                            nodeStack(node)
-                                .fixedSize()
-                                .scaleEffect(effectiveScale, anchor: .top)
-                                .offset(y: -NodeBubble.titleCenter * effectiveScale)
-                        }
-                        .position(screen(node.position, center: center))
-                        .zIndex(focusedId == node.id ? 2 : 0)
-                }
+            ForEach(edgeItems) { edge in
+                EdgeShape(from: edge.from, to: edge.to)
+                    .stroke(
+                        edge.kind == .tree ? Theme.edge : Theme.refEdge,
+                        style: StrokeStyle(lineWidth: edge.kind == .tree ? 1.5 : 1.4, dash: edge.kind == .tree ? [] : [6, 5])
+                    )
+                    .opacity(edge.dimmed ? 0.25 : 1)
+                    .allowsHitTesting(false)
             }
-            .gesture(zoomGesture)
-            .animation(.spring(duration: 0.35, bounce: 0.15), value: focusedId)
+
+            ForEach(map.nodes) { node in
+                // 크기가 없는 기준점을 노드 좌표(질문의 중심)에 두고, 노드는 그 위쪽 가운데에 매단다.
+                // 펼쳐져도 위쪽 기준이 그대로라 질문이 제자리에 남는다.
+                Color.clear
+                    .frame(width: 0, height: 0)
+                    .overlay(alignment: .top) {
+                        nodeStack(node)
+                            .fixedSize()
+                            .scaleEffect(effectiveScale, anchor: .top)
+                            .offset(y: -NodeBubble.titleCenter * effectiveScale)
+                    }
+                    .position(screenPoint(of: node))
+                    .zIndex(dragging?.id == node.id ? 3 : focusedId == node.id ? 2 : 0)
+                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+            }
         }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        .gesture(zoomGesture)
+        .animation(Self.focusSpring, value: focusedId)
+        #if os(macOS)
+        .background(ScrollPanMonitor { delta in
+            offset.width += delta.width
+            offset.height += delta.height
+        })
+        #endif
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
             TextField(prompt?.placeholder ?? "", text: $promptText)
@@ -83,36 +115,51 @@ struct MapScreen: View {
 
     // 좌표 변환
 
-    private func screen(_ position: Position, center: CGPoint) -> CGPoint {
-        CGPoint(
-            x: center.x + effectiveOffset.width + position.x * effectiveScale,
-            y: center.y + effectiveOffset.height + position.y * effectiveScale
+    private static func clamp(_ value: CGFloat) -> CGFloat {
+        min(max(value, minScale), maxScale)
+    }
+
+    /// 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
+    private func worldPoint(of node: Node) -> CGPoint {
+        var point = CGPoint(x: node.position.x, y: node.position.y)
+        if let dragging, dragging.id == node.id {
+            point.x += dragging.translation.width / effectiveScale
+            point.y += dragging.translation.height / effectiveScale
+        }
+        return point
+    }
+
+    private func screenPoint(of node: Node) -> CGPoint {
+        let world = worldPoint(of: node)
+        return CGPoint(
+            x: center.x + effectiveOffset.width + world.x * effectiveScale,
+            y: center.y + effectiveOffset.height + world.y * effectiveScale
         )
     }
 
     // 선
 
-    private func edges(center: CGPoint) -> some View {
-        let map = map
-        return Canvas { context, _ in
-            for node in map.nodes {
-                guard let pid = node.parentId, let parent = map[pid] else { continue }
-                var path = Path()
-                path.move(to: screen(parent.position, center: center))
-                path.addLine(to: screen(node.position, center: center))
-                context.stroke(path, with: .color(Theme.edge.opacity(isDimmed(node.id) ? 0.3 : 1)), lineWidth: 1.5)
-            }
-            for node in map.nodes {
-                for ref in node.refs {
-                    guard let target = map[ref.nodeId] else { continue }
-                    var path = Path()
-                    path.move(to: screen(node.position, center: center))
-                    path.addLine(to: screen(target.position, center: center))
-                    context.stroke(path, with: .color(Theme.refEdge), style: StrokeStyle(lineWidth: 1.4, dash: [6, 5]))
-                }
+    private var edgeItems: [EdgeItem] {
+        var items: [EdgeItem] = []
+        for node in map.nodes {
+            guard let pid = node.parentId, let parent = map[pid] else { continue }
+            items.append(EdgeItem(
+                id: "tree:\(node.id)", kind: .tree,
+                from: screenPoint(of: parent), to: screenPoint(of: node),
+                dimmed: isDimmed(node.id) && isDimmed(pid)
+            ))
+        }
+        for node in map.nodes {
+            for ref in node.refs {
+                guard let target = map[ref.nodeId] else { continue }
+                items.append(EdgeItem(
+                    id: "ref:\(node.id):\(ref.nodeId)", kind: .ref,
+                    from: screenPoint(of: node), to: screenPoint(of: target),
+                    dimmed: isDimmed(node.id) && isDimmed(target.id)
+                ))
             }
         }
-        .allowsHitTesting(false)
+        return items
     }
 
     // 노드와 추가 질문
@@ -120,15 +167,18 @@ struct MapScreen: View {
     /// 노드 카드와, 포커스된 경우 그 아래에 이어지는 추가 질문 칩
     private func nodeStack(_ node: Node) -> some View {
         let focused = focusedId == node.id
+        let isDragging = dragging?.id == node.id
         return VStack(spacing: 12) {
             NodeBubble(
                 node: node,
                 isFocused: focused,
                 isDimmed: isDimmed(node.id),
                 isSuggesting: ai.suggesting.contains(node.id),
-                onRetry: { retry(node.id) },
-                onCustomQuestion: { ask(.custom(parent: node.id)) }
+                onRetry: { retry(node.id) }
             )
+            .scaleEffect(isDragging ? 1.04 : 1)
+            .shadow(color: .black.opacity(isDragging ? 0.25 : 0), radius: 16, y: 8)
+            .animation(.spring(duration: 0.3, bounce: 0.3), value: isDragging)
             .onTapGesture { tap(node) }
             .gesture(moveGesture(for: node))
             .contextMenu { menu(for: node) }
@@ -140,26 +190,31 @@ struct MapScreen: View {
         }
     }
 
+    /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
     private func suggestionChips(for node: Node) -> some View {
         VStack(spacing: 8) {
             ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                Button {
-                    pick(suggestion, of: node.id)
-                } label: {
-                    Text(suggestion.text)
-                        .font(.callout)
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .frame(maxWidth: NodeBubble.expandedWidth - 40)
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 9)
-                        .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
-                        .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
-                        .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
-                }
-                .buttonStyle(.plain)
+                chip(Text(suggestion.text)) { pick(suggestion, of: node.id) }
+            }
+            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary)) {
+                ask(.custom(parent: node.id))
             }
         }
+    }
+
+    private func chip(_ label: Text, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            label
+                .font(.callout)
+                .lineLimit(2)
+                .frame(maxWidth: NodeBubble.expandedWidth - 40)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 9)
+                .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
+                .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
+                .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+        }
+        .buttonStyle(.plain)
     }
 
     /// 포커스 노드에 새 추가 질문이 떠 있을 때만 주변을 낮춘다 (SPEC 2.4).
@@ -184,8 +239,10 @@ struct MapScreen: View {
 
     private func pick(_ suggestion: Suggestion, of parentId: WID) {
         var created: WID?
-        document.perform("추가 질문 선택", undoManager: undoManager) {
-            created = $0.addChild(of: parentId, suggestion: suggestion.id)
+        withAnimation(Self.focusSpring) {
+            document.perform("추가 질문 선택", undoManager: undoManager) {
+                created = $0.addChild(of: parentId, suggestion: suggestion.id)
+            }
         }
         if let created { start(created) }
     }
@@ -245,8 +302,10 @@ struct MapScreen: View {
             if map.root.status == .pending { start(map.rootId) }
         case .custom(let parent):
             var created: WID?
-            document.perform("직접 질문", undoManager: undoManager) {
-                created = $0.addCustomChild(of: parent, question: text)
+            withAnimation(Self.focusSpring) {
+                document.perform("직접 질문", undoManager: undoManager) {
+                    created = $0.addCustomChild(of: parent, question: text)
+                }
             }
             if let created { start(created) }
         case .edit(let id):
@@ -265,29 +324,73 @@ struct MapScreen: View {
 
     // 제스처
 
+    /// 캔버스 끌기. 손을 떼면 빠르기만큼 더 미끄러지다 멈춘다.
     private var panGesture: some Gesture {
         DragGesture()
-            .updating($panDelta) { value, state, _ in state = value.translation }
+            .onChanged { value in livePan = value.translation }
             .onEnded { value in
-                offset.width += value.translation.width
-                offset.height += value.translation.height
+                withoutAnimation {
+                    offset.width += value.translation.width
+                    offset.height += value.translation.height
+                    livePan = .zero
+                }
+                let glide = CGSize(
+                    width: value.predictedEndTranslation.width - value.translation.width,
+                    height: value.predictedEndTranslation.height - value.translation.height
+                )
+                withAnimation(.smooth(duration: 0.6)) {
+                    offset.width += glide.width
+                    offset.height += glide.height
+                }
             }
     }
 
+    /// 핀치 확대 · 축소. 손가락 아래 지점을 기준으로 커지고 작아진다.
     private var zoomGesture: some Gesture {
         MagnifyGesture()
-            .updating($zoomDelta) { value, state, _ in state = value.magnification }
-            .onEnded { value in scale = min(max(scale * value.magnification, 0.2), 3) }
+            .onChanged { value in
+                if zoomAnchor == nil { zoomAnchor = value.startLocation }
+                liveZoom = value.magnification
+            }
+            .onEnded { _ in
+                withoutAnimation {
+                    let settledOffset = effectiveOffset
+                    scale = effectiveScale
+                    offset = settledOffset
+                    liveZoom = 1
+                    zoomAnchor = nil
+                }
+            }
     }
 
-    /// 노드를 끌어 옮기면 자동 배치에서 제외된다. 드래그가 끝날 때 한 번만 실행 취소에 등록한다.
+    /// 노드 끌기. 끄는 동안 노드와 선이 따라오고, 놓는 순간 그 자리에 확정된다. 실행 취소는 놓을 때 한 번만 등록한다.
     private func moveGesture(for node: Node) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
+            .onChanged { value in
+                withoutAnimation { dragging = (node.id, value.translation) }
+            }
             .onEnded { value in
                 let x = node.position.x + value.translation.width / effectiveScale
                 let y = node.position.y + value.translation.height / effectiveScale
-                document.perform("노드 이동", undoManager: undoManager) { $0.move(node.id, to: (x, y)) }
+                withoutAnimation {
+                    document.perform("노드 이동", undoManager: undoManager) { $0.move(node.id, to: (x, y)) }
+                    dragging = nil
+                }
             }
+    }
+
+    private func withoutAnimation(_ change: () -> Void) {
+        var transaction = Transaction()
+        transaction.disablesAnimations = true
+        withTransaction(transaction, change)
+    }
+
+    /// 버튼으로 바꾸는 배율 · 위치는 부드럽게 옮긴다.
+    private func animateCamera(scale newScale: CGFloat? = nil, offset newOffset: CGSize? = nil) {
+        withAnimation(.smooth(duration: 0.35)) {
+            if let newScale { scale = Self.clamp(newScale) }
+            if let newOffset { offset = newOffset }
+        }
     }
 
     // 도구 막대
@@ -295,9 +398,9 @@ struct MapScreen: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Button { scale = max(scale / 1.25, 0.2) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
-            Button { scale = min(scale * 1.25, 3) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
-            Button { scale = 1; offset = .zero } label: { Label("가운데로", systemImage: "scope") }
+            Button { animateCamera(scale: scale / 1.25) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
+            Button { animateCamera(scale: scale * 1.25) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
+            Button { animateCamera(scale: 1, offset: .zero) } label: { Label("가운데로", systemImage: "scope") }
             Button { showSettings = true } label: { Label("AI 설정", systemImage: "gearshape") }
         }
     }

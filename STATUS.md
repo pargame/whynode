@@ -16,7 +16,8 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ├ AISetupView     첫 실행 안내 · 설정 화면         ├ Prompt / ResponseParsing  시스템 프롬프트(v2) · JSON 추출
 ├ AnswerFormat      답변 서식 블록 · 인라인 해석 (SPEC 6.5)
 ├ WhyNodeDocument 파일 읽기/쓰기 · 실행 취소       ├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
-├ Theme           라이트 · 다크 의미 색           ├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기 · 모델 목록 (macOS)
+├ Theme           라이트 · 다크 의미 색
+├ CanvasParts     애니메이션되는 선 · 트랙패드 스크롤 이동 (macOS)           ├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기 · 모델 목록 (macOS)
 ├ ACPClient         ③ agy 상시 연결 (agy acp, macOS)
 └ SnapshotRenderer 디버그용 화면 PNG 렌더          └ HTTPProviders     ① Gemini · Claude · OpenAI API
 ```
@@ -51,5 +52,6 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ## 다음 할 일
 
 1. **agy 상시 연결 토큰**: 상시 연결은 빠르지만 세션마다 agy 기본 지시문이 캐시 없이 실려 호출당 토큰이 1회 실행보다 많다. ACP `_meta.antigravity.systemPrompt.append` 등으로 줄일 수 있는지 확인. 앱 화면에서의 실제 사용 확인도 필요.
-2. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 힘 기반 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
-3. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).
+2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
+3. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 힘 기반 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
+4. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).

@@ -48,7 +48,7 @@ enum SnapshotRenderer {
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
         func bubble(_ node: Node, focused: Bool) -> some View {
-            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, onRetry: {}, onCustomQuestion: {})
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, onRetry: {})
         }
         // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
         let content = HStack(alignment: .top, spacing: 28) {

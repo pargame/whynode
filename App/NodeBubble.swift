@@ -15,7 +15,6 @@ struct NodeBubble: View {
     let isDimmed: Bool
     let isSuggesting: Bool
     let onRetry: () -> Void
-    let onCustomQuestion: () -> Void
 
     @State private var titleHeight: CGFloat = 20
 
@@ -57,8 +56,9 @@ struct NodeBubble: View {
         .layeredFill(shape, tint: Theme.tint(for: node.status))
         .clipShape(shape)
         .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: isFocused ? 2.5 : 1))
-        .shadow(color: .black.opacity(0.18), radius: isFocused ? 10 : 5, y: 2)
-        .opacity(isDimmed ? 0.3 : 1)
+        // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
+        .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
+        .shadow(color: .black.opacity(isDimmed ? 0.05 : 0.18), radius: isFocused ? 10 : 5, y: 2)
         .contentShape(shape)
     }
 
@@ -80,10 +80,6 @@ struct NodeBubble: View {
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
                 Button("다시 시도", action: onRetry)
-                    .controlSize(.small)
-            }
-            if node.status == .done {
-                Button("직접 질문", systemImage: "plus.bubble", action: onCustomQuestion)
                     .controlSize(.small)
             }
         }
