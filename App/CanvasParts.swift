@@ -1,4 +1,8 @@
+import QuartzCore
 import SwiftUI
+#if os(macOS)
+import AppKit
+#endif
 
 /// 두 점을 잇는 선. 끝점이 애니메이션되므로 화면 이동 · 노드 이동 때 노드와 같은 박자로 움직인다.
 struct EdgeShape: Shape {
@@ -34,9 +38,34 @@ struct EdgeItem: Identifiable {
     let dimmed: Bool
 }
 
-#if os(macOS)
-import AppKit
+/// 화면 주사율에 맞춰 매 프레임 호출한다. 물리 정리가 도는 동안만 켠다.
+final class FrameTicker: NSObject {
+    private var link: CADisplayLink?
+    private var onFrame: (() -> Void)?
 
+    func start(_ onFrame: @escaping () -> Void) {
+        stop()
+        self.onFrame = onFrame
+        #if os(macOS)
+        link = NSScreen.main?.displayLink(target: self, selector: #selector(step))
+        #else
+        link = CADisplayLink(target: self, selector: #selector(step))
+        #endif
+        link?.add(to: .main, forMode: .common)
+    }
+
+    func stop() {
+        link?.invalidate()
+        link = nil
+        onFrame = nil
+    }
+
+    @objc private func step(_ link: CADisplayLink) {
+        onFrame?()
+    }
+}
+
+#if os(macOS)
 /// 트랙패드 두 손가락 스크롤 · 마우스 휠로 캔버스를 움직인다. 시스템이 보내는 관성 이벤트를 그대로 받아 손을 뗀 뒤에도 부드럽게 미끄러진다.
 /// 이 뷰가 놓인 창의 스크롤만 처리한다.
 struct ScrollPanMonitor: NSViewRepresentable {

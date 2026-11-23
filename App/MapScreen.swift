@@ -24,6 +24,11 @@ struct MapScreen: View {
     @State private var promptText = ""
     @State private var importError: String?
     @State private var showSettings = false
+    /// 물리 정리가 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
+    @State private var simulation: ForceSimulation?
+    @State private var ticker = FrameTicker()
+    /// 정리 중에 잡은 노드의 시작 위치(월드 좌표)
+    @State private var holdOrigin: CGPoint?
 
     static let minScale: CGFloat = 0.2
     static let maxScale: CGFloat = 3
@@ -78,6 +83,10 @@ struct MapScreen: View {
                     .transition(.scale(scale: 0.6).combined(with: .opacity))
             }
         }
+        .overlay(alignment: .bottomTrailing) {
+            PhysicsControl(settings: physicsBinding, isRunning: simulation != nil, onToggle: togglePhysics)
+                .padding(16)
+        }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
         .gesture(zoomGesture)
         .animation(Self.focusSpring, value: focusedId)
@@ -111,6 +120,8 @@ struct MapScreen: View {
             }
         }
         .onChange(of: settings.ai) { updateProvider() }
+        .onChange(of: map.nodes.count) { simulation?.sync(with: map) }
+        .onDisappear { finishPhysics() }
     }
 
     // 좌표 변환
@@ -119,8 +130,9 @@ struct MapScreen: View {
         min(max(value, minScale), maxScale)
     }
 
-    /// 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
+    /// 정리 중에는 시뮬레이션 위치를, 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
     private func worldPoint(of node: Node) -> CGPoint {
+        if let p = simulation?.position(of: node.id) { return CGPoint(x: p.x, y: p.y) }
         var point = CGPoint(x: node.position.x, y: node.position.y)
         if let dragging, dragging.id == node.id {
             point.x += dragging.translation.width / effectiveScale
@@ -229,6 +241,8 @@ struct MapScreen: View {
     // 동작
 
     private func tap(_ node: Node) {
+        // 정리 중에는 노드가 펼쳐지면 배치가 흐트러지므로 포커스를 주지 않는다.
+        guard simulation == nil else { return }
         if node.status == .empty {
             ask(.root)
             return
@@ -368,8 +382,25 @@ struct MapScreen: View {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
                 withoutAnimation { dragging = (node.id, value.translation) }
+                // 정리 중에는 잡은 노드를 손가락 위치에 고정하고, 이어진 노드가 딸려 오게 한다.
+                guard simulation != nil else { return }
+                if holdOrigin == nil { holdOrigin = worldPoint(of: node) }
+                if let origin = holdOrigin {
+                    simulation?.hold(node.id, at: (
+                        origin.x + value.translation.width / effectiveScale,
+                        origin.y + value.translation.height / effectiveScale
+                    ))
+                    simulation?.reheat(to: 0.3)
+                }
             }
             .onEnded { value in
+                if simulation != nil {
+                    simulation?.release(node.id)
+                    simulation?.reheat(to: 0.3)
+                    holdOrigin = nil
+                    withoutAnimation { dragging = nil }
+                    return
+                }
                 let x = node.position.x + value.translation.width / effectiveScale
                 let y = node.position.y + value.translation.height / effectiveScale
                 withoutAnimation {
@@ -377,6 +408,57 @@ struct MapScreen: View {
                     dragging = nil
                 }
             }
+    }
+
+    // 물리 정리
+
+    private var physicsBinding: Binding<PhysicsSettings> {
+        // 설정은 앱 전체가 공유하므로, 다른 창이 아닌 조작한 창에서만 정리를 돌린다.
+        Binding(get: { settings.physics }, set: {
+            settings.physics = $0
+            physicsChanged()
+        })
+    }
+
+    private func togglePhysics() {
+        if simulation == nil { startPhysics() } else { finishPhysics() }
+    }
+
+    /// 포커스를 먼저 풀어 모든 노드를 원으로 접은 뒤 시작한다.
+    private func startPhysics() {
+        guard map.nodes.count > 1 else { return }
+        focusedId = nil
+        simulation = ForceSimulation(map: map, settings: settings.physics)
+        ticker.start { stepPhysics() }
+    }
+
+    private func stepPhysics() {
+        guard simulation != nil else { return ticker.stop() }
+        var still = false
+        withoutAnimation { still = simulation?.tick() ?? false }
+        // 잡고 있는 동안에는 멈추지 않는다.
+        if !still, holdOrigin == nil { finishPhysics() }
+    }
+
+    /// 멈춘 자리를 실행 취소 1회로 문서에 반영한다.
+    private func finishPhysics() {
+        ticker.stop()
+        guard let positions = simulation?.positions else { return }
+        withoutAnimation {
+            document.perform("물리 정리", undoManager: undoManager) { $0.arrange(positions) }
+            simulation = nil
+            holdOrigin = nil
+        }
+    }
+
+    /// 조절값을 바꾸면 결과가 바로 보이도록, 도는 중이면 다시 데우고 멈춰 있으면 시작한다.
+    private func physicsChanged() {
+        if simulation == nil {
+            startPhysics()
+        } else {
+            simulation?.settings = settings.physics.clamped
+            simulation?.reheat(to: 0.5)
+        }
     }
 
     private func withoutAnimation(_ change: () -> Void) {

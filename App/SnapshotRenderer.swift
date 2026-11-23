@@ -14,9 +14,32 @@ enum SnapshotRenderer {
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
                 render(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("nodes-\(name).png"))
+                renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
             }
         }
         exit(0)
+    }
+
+    /// 펼친 물리 정리 패널
+    private static func renderPhysics(scheme: ColorScheme, to url: URL) {
+        let content = HStack(alignment: .bottom, spacing: 24) {
+            PhysicsControl(settings: .constant(.default), isRunning: false, onToggle: {})
+            PhysicsControl(settings: .constant(.default), isRunning: false, onToggle: {}, keepsOpen: true)
+        }
+        .padding(32)
+        .background(Theme.canvas)
+        .environment(\.colorScheme, scheme)
+        write(content, to: url)
+    }
+
+    private static func write(_ content: some View, to url: URL) {
+        let renderer = ImageRenderer(content: content)
+        renderer.scale = 2
+        guard let image = renderer.nsImage,
+              let tiff = image.tiffRepresentation,
+              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
+        else { return }
+        try? png.write(to: url)
     }
 
     private static func render(scheme: ColorScheme, to url: URL) {
@@ -64,14 +87,7 @@ enum SnapshotRenderer {
         .padding(32)
         .background(Theme.canvas)
         .environment(\.colorScheme, scheme)
-
-        let renderer = ImageRenderer(content: content)
-        renderer.scale = 2
-        guard let image = renderer.nsImage,
-              let tiff = image.tiffRepresentation,
-              let png = NSBitmapImageRep(data: tiff)?.representation(using: .png, properties: [:])
-        else { return }
-        try? png.write(to: url)
+        write(content, to: url)
     }
 }
 #endif

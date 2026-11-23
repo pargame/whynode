@@ -224,6 +224,15 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
+    /// 물리 정리 결과 반영 (SPEC 2.6). 루트만 제자리에 두고 나머지는 고정 여부와 상관없이 옮긴다.
+    public mutating func arrange(_ positions: [WID: (x: Double, y: Double)]) {
+        for (id, point) in positions where id != rootId {
+            guard let i = indexById[id] else { continue }
+            file.nodes[i].position.x = point.x
+            file.nodes[i].position.y = point.y
+        }
+    }
+
     // 내부
 
     private mutating func update(_ id: WID, now: Date, touch: Bool = true, _ change: (inout Node) -> Void) {
