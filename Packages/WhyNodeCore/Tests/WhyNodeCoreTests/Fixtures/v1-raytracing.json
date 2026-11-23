@@ -1,0 +1,53 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "id": "proj-db79777c",
+    "title": "레이트레이싱",
+    "createdAt": "2026-10-06T16:18:16.030482+00:00",
+    "updatedAt": "2026-10-06T16:21:37.095430+00:00"
+  },
+  "nodes": [
+    {
+      "id": "node-root",
+      "parentId": null,
+      "text": "레이트레이싱",
+      "content": null,
+      "state": "confirmed"
+    },
+    {
+      "id": "node-91575c",
+      "parentId": "node-root",
+      "text": "기존 래스터화 방식과 비교할 때, 레이트레이싱은 반사·굴절·그림자 같은 물리적 광학 현상을 어떻게 수학적으로 계산해낼까?",
+      "content": "래스터화가 3D 폴리곤을 2D 화면에 투영하여 깊이 버퍼(Z-buffer)로 근사하는 반면, 레이트레이싱은 1차 광선(Primary Ray)이 물체와 부딪히는 충돌점(Intersection)에서 재귀적(Recursive)으로 추가 광선을 생성합니다. 충돌점에서 광원을 향해 그림자 광선(Shadow Ray)을 쏘아 차폐 여부를 검사하고, 표면 법선 벡터(Normal Vector)를 기준으로 반사 법칙 및 스넬의 법칙(Snell's Law)을 적용해 반사 광선(Reflection Ray)과 굴절 광선(Refraction Ray)을 분기 추적합니다. 이처럼 충돌점마다 광선을 재귀 트리 형태로 전파하여 에너지를 누적하는 휘티드(Whitted) 광선 추적 모델을 통해 반사·굴절·그림자가 별도의 편법 없이 수학적으로 통합 계산됩니다.",
+      "state": "expanded"
+    },
+    {
+      "id": "node-831481",
+      "parentId": "node-91575c",
+      "text": "표면 법선 벡터와 스넬의 법칙(Snell's Law)으로 굴절 광선(Refraction Ray)을 계산할 때, 전반사(Total Internal Reflection) 현상은 어떻게 처리할까?",
+      "content": "스넬의 법칙 $\\eta_1 \\sin\\theta_i = \\eta_2 \\sin\\theta_t 굴절각을 구할 때, 벡터 수학식의 근호 내부 판별식인  - (\\eta_1/\\eta_2)^2(1 - \\cos^2\\theta_i) 0보다 작아지면 실수 해가 없는 전반사(Total Internal Reflection) 상태가 됩니다. 렌더러는 이 판별식이 음수일 때 굴절 광선 생성을 중단하고 광선의 모든 에너지를 반사 광선으로 100% 전환하여 처리합니다. 반대로 실수 해가 존재하는 일반 굴절 구간에서는 프레넬 방정식(Fresnel Equations) 또는 계산을 단순화한 셰릭 근사식(Schlick's Approximation)을 사용하여 입사각에 따른 반사율  굴절 투과율  = 1 - R 에너지 가중 비율을 결정합니다.",
+      "state": "expanded"
+    },
+    {
+      "id": "node-52b67e",
+      "parentId": "node-831481",
+      "text": "복잡한 프레넬 방정식을 대체하는 셰릭 근사식(Schlick's Approximation)은 어떤 수학적 형태로 반사율 곡선을 빠르게 근사할까?",
+      "content": null,
+      "state": "candidate"
+    },
+    {
+      "id": "node-463c35",
+      "parentId": "node-831481",
+      "text": "반사와 굴절 광선을 모두 추적할 때 발생하는 광선 분기 폭발을 막기 위해 몬테카를로 확률 선택(Russian Roulette 등)을 어떻게 활용할까?",
+      "content": null,
+      "state": "candidate"
+    },
+    {
+      "id": "node-62186c",
+      "parentId": "node-831481",
+      "text": "광선이 물체 안팎을 드나들 때 표면 법선 벡터의 방향과 매질 간 굴절률 비율(η1/η2)은 어떻게 정확히 판별하고 갱신할까?",
+      "content": null,
+      "state": "candidate"
+    }
+  ]
+}

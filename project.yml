@@ -1,0 +1,54 @@
+name: WhyNode
+options:
+  bundleIdPrefix: com.pargame
+  deploymentTarget:
+    macOS: "26.0"
+    iOS: "26.0"
+  createIntermediateGroups: true
+packages:
+  WhyNodeCore:
+    path: Packages/WhyNodeCore
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+targets:
+  WhyNode:
+    type: application
+    supportedDestinations: [macOS, iOS]
+    sources:
+      - path: App
+    dependencies:
+      - package: WhyNodeCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.pargame.whynode
+        PRODUCT_NAME: WhyNode
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        TARGETED_DEVICE_FAMILY: "2"
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        DEVELOPMENT_TEAM: ""
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: WhyNode
+        LSApplicationCategoryType: public.app-category.education
+        LSSupportsOpeningDocumentsInPlace: true
+        UISupportsDocumentBrowser: true
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: WhyNode Document
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes: [com.pargame.whynode]
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: com.pargame.whynode
+            UTTypeDescription: WhyNode Document
+            UTTypeConformsTo: [public.json]
+            UTTypeTagSpecification:
+              public.filename-extension: [whynode]

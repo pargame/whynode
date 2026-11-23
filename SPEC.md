@@ -103,6 +103,7 @@
 * **결정**: SwiftUI 네이티브(macOS · iPadOS)로 만들고, 마인드맵 공유가 필요해지면 `.whynode` JSON을 읽는 **읽기 전용 웹 뷰어**를 추가합니다.
 * **웹을 택하지 않은 이유**: 브라우저에서는 ③ 공식 CLI 연동(5.1)이 불가능하고, 인증 정보를 Keychain 수준으로 보관할 수 없으며(5.2), 파일 앱 · iCloud Drive 문서를 직접 여닫는 문서 앱 동작(7.6)을 구현할 수 없습니다. API Key 호출 자체는 주요 프로바이더 모두 브라우저에서 가능하므로 판단 근거가 아닙니다.
 * **배포 비용**: macOS 본인 사용은 무료로 빌드할 수 있습니다. iPadOS 실기기에서 iCloud 동기화까지 쓰려면 Apple Developer Program 가입(연 $99)이 필요합니다(무료 계정은 7일마다 재서명, iCloud 권한 불가).
+* **macOS 배포 형태**: ③ 공식 CLI 연동은 앱이 사용자 홈의 CLI와 그 로그인 정보를 쓰므로 App Sandbox 안에서는 동작하지 않습니다. macOS판은 Mac App Store 대신 Developer ID 서명 · 공증(notarization) 배포를 기본으로 하고, 샌드박스가 필요한 배포판을 따로 만들 경우 ③을 제외합니다.
 * **재검토 조건**: macOS · iPadOS 전용과 ③을 포기하고 Windows · Android 지원이나 비용 회피를 우선하게 되면 웹(PWA) 또는 Tauri v2를 다시 검토합니다.
 
 ---

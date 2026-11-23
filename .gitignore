@@ -31,3 +31,10 @@ logs/
 node_modules/
 dist/
 build/
+
+# Xcode (project.yml에서 생성)
+WhyNode.xcodeproj/
+App/Info.plist
+DerivedData/
+.build/
+.swiftpm/
