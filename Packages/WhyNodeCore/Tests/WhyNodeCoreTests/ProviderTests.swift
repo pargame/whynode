@@ -97,5 +97,32 @@ struct ACPTests {
         }
         await client.shutdown()
     }
+
+    /// 답하지 않는 가짜 ACP 서버로 시간 초과가 실제로 대기를 끝내는지 확인한다.
+    @Test func 응답이_없으면_시간_초과로_끝난다() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("WhyNodeFakeACP-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let script = directory.appendingPathComponent("fake-acp")
+        // session/prompt만 무시하고 나머지 요청에는 세션 id로 답한다.
+        try """
+        #!/bin/sh
+        while IFS= read -r line; do
+          case "$line" in *'"prompt":'*) continue ;; esac
+          case "$line" in *'"id":'*) ;; *) continue ;; esac
+          id=$(printf '%s' "$line" | sed -E 's/.*"id":([0-9]+).*/\\1/')
+          printf '{"jsonrpc":"2.0","id":%s,"result":{"sessionId":"s1"}}\\n' "$id"
+        done
+        """.write(to: script, atomically: true, encoding: .utf8)
+        try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: script.path)
+
+        let client = ACPClient(executable: script)
+        let started = ContinuousClock.now
+        await #expect(throws: ProviderError.timeout) {
+            try await client.ask("질문", model: "", timeout: .milliseconds(300))
+        }
+        #expect(ContinuousClock.now - started < .seconds(5))
+        await client.shutdown()
+    }
 }
 #endif

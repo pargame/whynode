@@ -173,15 +173,25 @@ public actor ACPClient {
         let id = nextId
         let message: [String: Any] = ["jsonrpc": "2.0", "id": id, "method": method, "params": params]
         let data = try JSONSerialization.data(withJSONObject: message) + Data("\n".utf8)
-        return try await withCheckedThrowingContinuation { continuation in
-            pending[id] = continuation
-            do {
-                try stdin.write(contentsOf: data)
-            } catch {
-                pending[id] = nil
-                continuation.resume(throwing: ProviderError.cliFailed(error.localizedDescription))
+        // 시간 초과 · 작업 취소 시 응답을 기다리지 않고 바로 끝낸다. 취소 처리가 없으면 task group이 이 대기를 끝까지 기다린다.
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                do {
+                    try Task.checkCancellation()
+                    pending[id] = continuation
+                    try stdin.write(contentsOf: data)
+                } catch {
+                    pending[id] = nil
+                    continuation.resume(throwing: error is CancellationError ? error : ProviderError.cliFailed(error.localizedDescription))
+                }
             }
+        } onCancel: {
+            Task { await self.cancelPending(id) }
         }
+    }
+
+    private func cancelPending(_ id: Int) {
+        pending.removeValue(forKey: id)?.resume(throwing: CancellationError())
     }
 
     private func notify(_ method: String, _ params: [String: Any]) {
