@@ -23,5 +23,7 @@ export DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer
 # Mac 앱
 xcodegen generate
 xcodebuild -project WhyNode.xcodeproj -scheme WhyNode -destination 'platform=macOS' -derivedDataPath DerivedData build
-open DerivedData/Build/Products/Debug/WhyNode.app
+open WhyNode.app
 ```
+
+`WhyNode.app`은 빌드 결과(`DerivedData/Build/Products/Debug/WhyNode.app`)를 가리키는 바로가기입니다. 빌드할 때마다 최신 앱을 가리키며, 커밋하지 않습니다.

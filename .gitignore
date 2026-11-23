@@ -38,3 +38,4 @@ App/Info.plist
 DerivedData/
 .build/
 .swiftpm/
+/WhyNode.app
