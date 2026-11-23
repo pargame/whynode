@@ -3,7 +3,7 @@ import WhyNodeCore
 
 /// 노드. 평소에는 질문만 담은 원이고, 포커스되면 질문은 제자리에 둔 채 아래로 넓어지는 둥근 네모가 되며 본문이 나타난다 (SPEC 2.4).
 /// 뷰의 위쪽 가운데가 기준점이며, 질문의 중심은 항상 위에서 `titleCenter`만큼 떨어진 곳에 있다.
-struct NodeBubble: View {
+struct NodeBubble: View, Equatable {
     static let compactDiameter: CGFloat = 140
     static let expandedWidth: CGFloat = 380
     static var titleCenter: CGFloat { compactDiameter / 2 }
@@ -14,7 +14,15 @@ struct NodeBubble: View {
     let isFocused: Bool
     let isDimmed: Bool
     let isSuggesting: Bool
+    /// 시뮬레이션 · 끌기 중에는 그림자를 끈다. 뷰를 갈아 끼우지 않도록 값만 바꾼다.
+    var isQuiet = false
     let onRetry: () -> Void
+
+    /// 위치가 바뀌는 매 프레임마다 본문을 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
+    static func == (lhs: NodeBubble, rhs: NodeBubble) -> Bool {
+        lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isDimmed == rhs.isDimmed
+            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet
+    }
 
     /// 원 안에서 보이는 질문(최대 4줄)의 높이. 펼쳐서 줄이 늘어도 이 값으로 위 여백을 정해 첫 줄이 움직이지 않는다.
     @State private var titleHeight: CGFloat = 20
@@ -59,7 +67,7 @@ struct NodeBubble: View {
         .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: isFocused ? 2.5 : 1))
         // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
         .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
-        .shadow(color: .black.opacity(isDimmed ? 0.05 : 0.18), radius: isFocused ? 10 : 5, y: 2)
+        .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
         .contentShape(shape)
     }
 

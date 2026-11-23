@@ -3,52 +3,25 @@ import UniformTypeIdentifiers
 import WhyNodeCore
 
 /// 화이트보드 캔버스. 노드 표시 · 추가 질문 · 컨텍스트 메뉴 · 직접 질문 입력을 담당한다 (SPEC 2.3~2.4).
+/// 매 프레임 바뀌는 카메라 · 끌기 · 시뮬레이션 값은 `CanvasModel`에 두고, 이 화면의 body에서는 읽지 않는다.
 struct MapScreen: View {
     @ObservedObject var document: WhyNodeDocument
     @Environment(\.undoManager) private var undoManager
     @Environment(SettingsStore.self) private var settings
 
     @State private var ai = AIController()
-    /// 확정된 화면 배율 · 이동량. 제스처 중의 값은 아래 live 값에 따로 둔다.
-    @State private var scale: CGFloat = 1
-    @State private var offset: CGSize = .zero
-    @State private var livePan: CGSize = .zero
-    @State private var liveZoom: CGFloat = 1
-    @State private var zoomAnchor: CGPoint?
-    /// 끌고 있는 노드와 화면상 이동량. 손을 떼기 전까지 노드와 선이 손가락을 따라온다.
-    @State private var dragging: (id: WID, translation: CGSize)?
-    @State private var viewSize: CGSize = .zero
+    @State private var canvas = CanvasModel()
     /// 포커스는 최대 하나이며, 포커스된 노드만 펼쳐진다.
     @State private var focusedId: WID?
     @State private var prompt: PromptRequest?
     @State private var promptText = ""
     @State private var importError: String?
     @State private var showSettings = false
-    /// 시뮬레이션이 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
-    @State private var simulation: ForceSimulation?
     @State private var ticker = FrameTicker()
-    /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
-    @State private var holdOrigin: CGPoint?
 
-    static let minScale: CGFloat = 0.2
-    static let maxScale: CGFloat = 3
     private static let focusSpring = Animation.spring(duration: 0.35, bounce: 0.15)
 
     private var map: MindMap { document.map }
-    private var center: CGPoint { CGPoint(x: viewSize.width / 2, y: viewSize.height / 2) }
-    private var effectiveScale: CGFloat { Self.clamp(scale * liveZoom) }
-
-    /// 핀치 중에는 손가락 아래의 지점이 그대로 있도록 이동량을 보정한다.
-    private var effectiveOffset: CGSize {
-        guard let anchor = zoomAnchor else {
-            return CGSize(width: offset.width + livePan.width, height: offset.height + livePan.height)
-        }
-        let ratio = effectiveScale / scale
-        return CGSize(
-            width: anchor.x - center.x - (anchor.x - center.x - offset.width) * ratio,
-            height: anchor.y - center.y - (anchor.y - center.y - offset.height) * ratio
-        )
-    }
 
     var body: some View {
         ZStack {
@@ -57,43 +30,23 @@ struct MapScreen: View {
                 .gesture(panGesture)
                 .onTapGesture { focusedId = nil }
 
-            ForEach(edgeItems) { edge in
-                EdgeShape(from: edge.from, to: edge.to)
-                    .stroke(
-                        edge.kind == .tree ? Theme.edge : Theme.refEdge,
-                        style: StrokeStyle(lineWidth: edge.kind == .tree ? 1.5 : 1.4, dash: edge.kind == .tree ? [] : [6, 5])
-                    )
-                    .opacity(edge.dimmed ? 0.25 : 1)
-                    .allowsHitTesting(false)
-            }
+            EdgeLayer(map: map, canvas: canvas, isDimmed: isDimmed)
 
-            ForEach(map.nodes) { node in
-                // 크기가 없는 기준점을 노드 좌표(질문의 중심)에 두고, 노드는 그 위쪽 가운데에 매단다.
-                // 펼쳐져도 위쪽 기준이 그대로라 질문이 제자리에 남는다.
-                Color.clear
-                    .frame(width: 0, height: 0)
-                    .overlay(alignment: .top) {
-                        nodeStack(node)
-                            .fixedSize()
-                            .scaleEffect(effectiveScale, anchor: .top)
-                            .offset(y: -NodeBubble.titleCenter * effectiveScale)
-                    }
-                    .position(screenPoint(of: node))
-                    .zIndex(dragging?.id == node.id ? 3 : focusedId == node.id ? 2 : 0)
-                    .transition(.scale(scale: 0.6).combined(with: .opacity))
+            NodeLayer(nodes: map.nodes, canvas: canvas, focusedId: focusedId) { node in
+                nodeStack(node)
             }
         }
         .overlay(alignment: .bottomTrailing) {
-            PhysicsControl(settings: physicsBinding, isRunning: simulation != nil, onToggle: togglePhysics)
+            PhysicsControl(settings: physicsBinding, isRunning: canvas.isRunning, onToggle: togglePhysics)
                 .padding(16)
         }
-        .onGeometryChange(for: CGSize.self) { $0.size } action: { viewSize = $0 }
+        .onGeometryChange(for: CGSize.self) { $0.size } action: { canvas.viewSize = $0 }
         .gesture(zoomGesture)
         .animation(Self.focusSpring, value: focusedId)
         #if os(macOS)
-        .background(ScrollPanMonitor { delta in
-            offset.width += delta.width
-            offset.height += delta.height
+        .background(ScrollPanMonitor { [canvas] delta in
+            canvas.offset.width += delta.width
+            canvas.offset.height += delta.height
         })
         #endif
         .toolbar { toolbar }
@@ -120,58 +73,8 @@ struct MapScreen: View {
             }
         }
         .onChange(of: settings.ai) { updateProvider() }
-        .onChange(of: map.nodes.count) { simulation?.sync(with: map) }
+        .onChange(of: map.nodes.count) { canvas.simulation?.sync(with: map) }
         .onDisappear { finishPhysics() }
-    }
-
-    // 좌표 변환
-
-    private static func clamp(_ value: CGFloat) -> CGFloat {
-        min(max(value, minScale), maxScale)
-    }
-
-    /// 시뮬레이션 중에는 시뮬레이션 위치를, 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
-    private func worldPoint(of node: Node) -> CGPoint {
-        if let p = simulation?.position(of: node.id) { return CGPoint(x: p.x, y: p.y) }
-        var point = CGPoint(x: node.position.x, y: node.position.y)
-        if let dragging, dragging.id == node.id {
-            point.x += dragging.translation.width / effectiveScale
-            point.y += dragging.translation.height / effectiveScale
-        }
-        return point
-    }
-
-    private func screenPoint(of node: Node) -> CGPoint {
-        let world = worldPoint(of: node)
-        return CGPoint(
-            x: center.x + effectiveOffset.width + world.x * effectiveScale,
-            y: center.y + effectiveOffset.height + world.y * effectiveScale
-        )
-    }
-
-    // 선
-
-    private var edgeItems: [EdgeItem] {
-        var items: [EdgeItem] = []
-        for node in map.nodes {
-            guard let pid = node.parentId, let parent = map[pid] else { continue }
-            items.append(EdgeItem(
-                id: "tree:\(node.id)", kind: .tree,
-                from: screenPoint(of: parent), to: screenPoint(of: node),
-                dimmed: isDimmed(node.id) && isDimmed(pid)
-            ))
-        }
-        for node in map.nodes {
-            for ref in node.refs {
-                guard let target = map[ref.nodeId] else { continue }
-                items.append(EdgeItem(
-                    id: "ref:\(node.id):\(ref.nodeId)", kind: .ref,
-                    from: screenPoint(of: node), to: screenPoint(of: target),
-                    dimmed: isDimmed(node.id) && isDimmed(target.id)
-                ))
-            }
-        }
-        return items
     }
 
     // 노드와 추가 질문
@@ -179,15 +82,17 @@ struct MapScreen: View {
     /// 노드 카드와, 포커스된 경우 그 아래에 이어지는 추가 질문 칩
     private func nodeStack(_ node: Node) -> some View {
         let focused = focusedId == node.id
-        let isDragging = dragging?.id == node.id
+        let isDragging = canvas.dragging?.id == node.id
         return VStack(spacing: 12) {
             NodeBubble(
                 node: node,
                 isFocused: focused,
                 isDimmed: isDimmed(node.id),
                 isSuggesting: ai.suggesting.contains(node.id),
+                isQuiet: canvas.isMoving,
                 onRetry: { retry(node.id) }
             )
+            .equatable()
             .scaleEffect(isDragging ? 1.04 : 1)
             .shadow(color: .black.opacity(isDragging ? 0.25 : 0), radius: 16, y: 8)
             .animation(.spring(duration: 0.3, bounce: 0.3), value: isDragging)
@@ -242,7 +147,7 @@ struct MapScreen: View {
 
     private func tap(_ node: Node) {
         // 시뮬레이션 중에는 노드가 펼쳐지면 배치가 흐트러지므로 포커스를 주지 않는다.
-        guard simulation == nil else { return }
+        guard !canvas.isRunning else { return }
         if node.status == .empty {
             ask(.root)
             return
@@ -341,20 +246,20 @@ struct MapScreen: View {
     /// 캔버스 끌기. 손을 떼면 빠르기만큼 더 미끄러지다 멈춘다.
     private var panGesture: some Gesture {
         DragGesture()
-            .onChanged { value in livePan = value.translation }
-            .onEnded { value in
+            .onChanged { [canvas] value in canvas.livePan = value.translation }
+            .onEnded { [canvas] value in
                 withoutAnimation {
-                    offset.width += value.translation.width
-                    offset.height += value.translation.height
-                    livePan = .zero
+                    canvas.offset.width += value.translation.width
+                    canvas.offset.height += value.translation.height
+                    canvas.livePan = .zero
                 }
                 let glide = CGSize(
                     width: value.predictedEndTranslation.width - value.translation.width,
                     height: value.predictedEndTranslation.height - value.translation.height
                 )
                 withAnimation(.smooth(duration: 0.6)) {
-                    offset.width += glide.width
-                    offset.height += glide.height
+                    canvas.offset.width += glide.width
+                    canvas.offset.height += glide.height
                 }
             }
     }
@@ -362,17 +267,17 @@ struct MapScreen: View {
     /// 핀치 확대 · 축소. 손가락 아래 지점을 기준으로 커지고 작아진다.
     private var zoomGesture: some Gesture {
         MagnifyGesture()
-            .onChanged { value in
-                if zoomAnchor == nil { zoomAnchor = value.startLocation }
-                liveZoom = value.magnification
+            .onChanged { [canvas] value in
+                if canvas.zoomAnchor == nil { canvas.zoomAnchor = value.startLocation }
+                canvas.liveZoom = value.magnification
             }
-            .onEnded { _ in
+            .onEnded { [canvas] _ in
                 withoutAnimation {
-                    let settledOffset = effectiveOffset
-                    scale = effectiveScale
-                    offset = settledOffset
-                    liveZoom = 1
-                    zoomAnchor = nil
+                    let settledOffset = canvas.effectiveOffset
+                    canvas.scale = canvas.effectiveScale
+                    canvas.offset = settledOffset
+                    canvas.liveZoom = 1
+                    canvas.zoomAnchor = nil
                 }
             }
     }
@@ -381,31 +286,32 @@ struct MapScreen: View {
     private func moveGesture(for node: Node) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
-                withoutAnimation { dragging = (node.id, value.translation) }
+                withoutAnimation { canvas.dragging = (node.id, value.translation) }
                 // 시뮬레이션 중에는 잡은 노드를 손가락 위치에 고정하고, 이어진 노드가 딸려 오게 한다.
-                guard simulation != nil else { return }
-                if holdOrigin == nil { holdOrigin = worldPoint(of: node) }
-                if let origin = holdOrigin {
-                    simulation?.hold(node.id, at: (
-                        origin.x + value.translation.width / effectiveScale,
-                        origin.y + value.translation.height / effectiveScale
+                guard canvas.simulation != nil else { return }
+                if canvas.holdOrigin == nil { canvas.holdOrigin = canvas.worldPoint(of: node) }
+                if let origin = canvas.holdOrigin {
+                    let scale = canvas.effectiveScale
+                    canvas.simulation?.hold(node.id, at: (
+                        origin.x + value.translation.width / scale,
+                        origin.y + value.translation.height / scale
                     ))
-                    simulation?.reheat(to: 0.3)
+                    canvas.simulation?.reheat(to: 0.3)
                 }
             }
             .onEnded { value in
-                if simulation != nil {
-                    simulation?.release(node.id)
-                    simulation?.reheat(to: 0.3)
-                    holdOrigin = nil
-                    withoutAnimation { dragging = nil }
+                if canvas.simulation != nil {
+                    canvas.simulation?.release(node.id)
+                    canvas.simulation?.reheat(to: 0.3)
+                    canvas.holdOrigin = nil
+                    withoutAnimation { canvas.dragging = nil }
                     return
                 }
-                let x = node.position.x + value.translation.width / effectiveScale
-                let y = node.position.y + value.translation.height / effectiveScale
+                let x = node.position.x + value.translation.width / canvas.effectiveScale
+                let y = node.position.y + value.translation.height / canvas.effectiveScale
                 withoutAnimation {
                     document.perform("노드 이동", undoManager: undoManager) { $0.move(node.id, to: (x, y)) }
-                    dragging = nil
+                    canvas.dragging = nil
                 }
             }
     }
@@ -421,43 +327,42 @@ struct MapScreen: View {
     }
 
     private func togglePhysics() {
-        if simulation == nil { startPhysics() } else { finishPhysics() }
+        if canvas.isRunning { finishPhysics() } else { startPhysics() }
     }
 
     /// 포커스를 먼저 풀어 모든 노드를 원으로 접은 뒤 시작한다.
     private func startPhysics() {
         guard map.nodes.count > 1 else { return }
         focusedId = nil
-        simulation = ForceSimulation(map: map, settings: settings.physics)
+        canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics))
         ticker.start { stepPhysics() }
     }
 
     private func stepPhysics() {
-        guard simulation != nil else { return ticker.stop() }
+        guard canvas.simulation != nil else { return ticker.stop() }
         var still = false
-        withoutAnimation { still = simulation?.tick() ?? false }
+        withoutAnimation { still = canvas.simulation?.tick() ?? false }
         // 잡고 있는 동안에는 멈추지 않는다.
-        if !still, holdOrigin == nil { finishPhysics() }
+        if !still, canvas.holdOrigin == nil { finishPhysics() }
     }
 
     /// 멈춘 자리를 실행 취소 1회로 문서에 반영한다.
     private func finishPhysics() {
         ticker.stop()
-        guard let positions = simulation?.positions else { return }
+        guard canvas.simulation != nil else { return }
         withoutAnimation {
+            guard let positions = canvas.stopSimulation() else { return }
             document.perform("시뮬레이션", undoManager: undoManager) { $0.arrange(positions) }
-            simulation = nil
-            holdOrigin = nil
         }
     }
 
     /// 조절값을 바꾸면 결과가 바로 보이도록, 도는 중이면 다시 데우고 멈춰 있으면 시작한다.
     private func physicsChanged() {
-        if simulation == nil {
+        if canvas.simulation == nil {
             startPhysics()
         } else {
-            simulation?.settings = settings.physics.clamped
-            simulation?.reheat(to: 0.5)
+            canvas.simulation?.settings = settings.physics.clamped
+            canvas.simulation?.reheat(to: 0.5)
         }
     }
 
@@ -470,8 +375,8 @@ struct MapScreen: View {
     /// 버튼으로 바꾸는 배율 · 위치는 부드럽게 옮긴다.
     private func animateCamera(scale newScale: CGFloat? = nil, offset newOffset: CGSize? = nil) {
         withAnimation(.smooth(duration: 0.35)) {
-            if let newScale { scale = Self.clamp(newScale) }
-            if let newOffset { offset = newOffset }
+            if let newScale { canvas.scale = CanvasModel.clamp(newScale) }
+            if let newOffset { canvas.offset = newOffset }
         }
     }
 
@@ -480,8 +385,8 @@ struct MapScreen: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Button { animateCamera(scale: scale / 1.25) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
-            Button { animateCamera(scale: scale * 1.25) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
+            Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
+            Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
             Button { animateCamera(scale: 1, offset: .zero) } label: { Label("가운데로", systemImage: "scope") }
             Button { showSettings = true } label: { Label("AI 설정", systemImage: "gearshape") }
         }

@@ -18,6 +18,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 ├ AnswerFormat      답변 서식 블록 · 인라인 해석 (SPEC 6.5)
 ├ WhyNodeDocument 파일 읽기/쓰기 · 실행 취소       ├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
 ├ Theme           라이트 · 다크 의미 색
+├ CanvasModel     카메라 · 끌기 · 시뮬레이션 상태, 노드 층 · 선 층
 ├ CanvasParts     애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 (macOS)           ├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기 · 모델 목록 (macOS)
 ├ ACPClient         ③ agy 상시 연결 (agy acp, 전용 에이전트 · 빈 설정 폴더, macOS)
 └ SnapshotRenderer 디버그용 화면 PNG 렌더          └ HTTPProviders     ① Gemini · Claude · OpenAI API
@@ -25,6 +26,8 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 * **데이터 흐름**: 화면 동작 → `WhyNodeDocument.perform`(UndoManager 등록 = 자동 저장 트리거) → `MindMap` 변경. AI가 필요하면 `AIController`가 `ContextBuilder`로 맥락을 만들어 프로바이더에 보내고, `ResponseValidator`를 거쳐 `MindMap.applyAnswer`로 반영합니다.
 * **시뮬레이션**: 버튼을 누르면 `MapScreen`이 `ForceSimulation`을 만들고 `FrameTicker`로 매 프레임 한 틱씩 돌려 화면에만 반영하다가, 멈추는 순간 `MindMap.arrange`로 Undo 1회 반영합니다.
+* **화면 갱신 범위**: 카메라 · 노드 끌기 · 시뮬레이션처럼 매 프레임 바뀌는 값은 `CanvasModel`(@Observable)에 두고 `NodeLayer` · `EdgeLayer`만 읽습니다. `MapScreen.body`에서 이 값을 읽으면 매 프레임 화면 전체가 다시 계산되므로 피합니다(`isRunning`은 그래서 계산 프로퍼티가 아닌 저장 프로퍼티). 선은 시뮬레이션 중에만 `Canvas` 하나로 그리고, 평소에는 노드 애니메이션과 박자를 맞추는 `EdgeShape`를 씁니다.
+* **실행 취소와 AI 요청**: AI 답변도 Undo 단계입니다. 되돌린 결과에 진행 중 요청(`WhyNodeDocument.inFlight`)이 없는 대기 노드가 생기면 `interruptPending`으로 "중단됨" 오류 상태로 바꿔 다시 시도할 수 있게 합니다.
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값은 UserDefaults(`ai.settings`, `physics.settings`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
 
@@ -32,7 +35,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 | 대상 | 방법 |
 | :--- | :--- |
-| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (52개) |
+| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (54개) |
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
@@ -53,8 +56,9 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지.
+1. **앱 화면 실사용 확인**: agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 새 노드 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
-5. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).
+5. **agy 세션 열기 시간 초과 없음**: 질문 요청(`session/prompt`)은 시간 초과로 끊기지만, 연결 · 세션 열기(`start`, `session/new`, `session/set_model`)에서 agy가 멈추면 여전히 무한 대기한다.
+6. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).
