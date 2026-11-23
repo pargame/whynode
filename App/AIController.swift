@@ -4,17 +4,24 @@ import WhyNodeCore
 /// 노드 답변 · 추가 질문 요청을 프로바이더에 보내고 결과를 검증해 문서에 반영한다 (SPEC 5.3, 6.4).
 @Observable
 final class AIController {
-    var provider: any AIProvider = MockProvider()
+    /// 설정(SettingsStore)에서 만든 프로바이더. 설정 전이면 nil.
+    var provider: (any AIProvider)?
     /// 추가 질문 다시 받기 중인 노드. 노드 상태(`status`)와 별개인 화면 전용 로딩 상태다.
     private(set) var suggesting: Set<WID> = []
     var notice: String?
+
+    static let notConfigured = "AI 연결 설정이 필요합니다. 도구 막대의 AI 설정에서 연결해 주세요."
 
     private var running = 0
     private var waiting: [CheckedContinuation<Void, Never>] = []
 
     func requestAnswer(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?) {
         guard let context = ContextBuilder.answer(for: id, in: document.map) else { return }
-        let provider = provider
+        guard let provider else {
+            document.perform("답변 실패", undoManager: undoManager) { $0.failRequest(id, message: Self.notConfigured) }
+            notice = Self.notConfigured
+            return
+        }
         Task {
             await acquire()
             defer { release() }
@@ -41,8 +48,11 @@ final class AIController {
         guard !suggesting.contains(id),
               let context = ContextBuilder.suggest(for: id, in: document.map, exclude: exclude)
         else { return }
+        guard let provider else {
+            notice = Self.notConfigured
+            return
+        }
         suggesting.insert(id)
-        let provider = provider
         Task {
             await acquire()
             defer {
@@ -72,13 +82,15 @@ final class AIController {
             return try await operation()
         } catch is DecodingError, is ValidationError {
             return try await operation()
+        } catch ProviderError.unreadableResponse, ProviderError.emptyResponse {
+            return try await operation()
         }
     }
 
     // 프로바이더 동시 요청 한도
 
     private func acquire() async {
-        if running < provider.capabilities.maxConcurrentRequests {
+        if running < (provider?.capabilities.maxConcurrentRequests ?? 1) {
             running += 1
             return
         }

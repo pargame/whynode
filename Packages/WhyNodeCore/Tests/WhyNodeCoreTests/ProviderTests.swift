@@ -1,0 +1,54 @@
+import Foundation
+import Testing
+@testable import WhyNodeCore
+
+@Suite("AI 응답 해석")
+struct ProviderParsingTests {
+    @Test func 설명과_코드_블록이_섞여도_JSON을_찾는다() throws {
+        let text = """
+        다음과 같습니다.
+        ```json
+        {"suggestions": ["왜 {괄호}가 들어가도 될까?", "두 번째"]}
+        ```
+        """
+        let value = try JSONExtract.decode(SuggestResponse.self, from: text)
+        #expect(value.suggestions == ["왜 {괄호}가 들어가도 될까?", "두 번째"])
+    }
+
+    @Test func refs가_없어도_답변을_읽는다() throws {
+        let value = try JSONExtract.decode(AnswerResponse.self, from: #"{"answer":"a","summary":"s","suggestions":["q"]}"#)
+        #expect(value.refs.isEmpty)
+    }
+
+    #if os(macOS)
+    @Test func claude_CLI_결과는_structured_output을_쓴다() throws {
+        let output = #"{"type":"result","is_error":false,"result":"{\"suggestions\":[\"x\"]}","structured_output":{"suggestions":["왜 하늘은 파랄까?"]}}"#
+        let value = try CLIProvider.extract(SuggestResponse.self, from: Data(output.utf8), usable: { !$0.suggestions.isEmpty })
+        #expect(value.suggestions == ["왜 하늘은 파랄까?"])
+    }
+
+    @Test func agy_CLI_결과의_structured_output이_비면_본문에서_찾는다() throws {
+        let output = #"{"status":"SUCCESS","response":"{\"topic\":\"무지개\"}\n{\"suggestions\":[\"왜 둥글까?\"]}\n","structured_output":{"suggestions":[]}}"#
+        let value = try CLIProvider.extract(SuggestResponse.self, from: Data(output.utf8), usable: { !$0.suggestions.isEmpty })
+        #expect(value.suggestions == ["왜 둥글까?"])
+    }
+
+    @Test func CLI_오류_결과는_실패로_본다() {
+        let output = #"{"type":"result","is_error":true,"result":"로그인이 필요합니다"}"#
+        #expect(throws: ProviderError.cliFailed("로그인이 필요합니다")) {
+            try CLIProvider.extract(SuggestResponse.self, from: Data(output.utf8), usable: { _ in true })
+        }
+    }
+
+    /// 실제 CLI 호출. `WHYNODE_LIVE_CLI=agy` 또는 `claude`로 켤 때만 실행한다.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["WHYNODE_LIVE_CLI"] != nil))
+    func 실제_CLI_연결_테스트() async throws {
+        let tool = ProcessInfo.processInfo.environment["WHYNODE_LIVE_CLI"]!
+        let kind = try #require(ProviderKind.allCases.first { $0.cliTool == tool })
+        let executable = try #require(CLIProvider.locate(tool))
+        let suggestions = try await ConnectionTest.run(CLIProvider(kind: kind, executable: executable))
+        print("LIVE", tool, suggestions)
+        #expect(!suggestions.isEmpty)
+    }
+    #endif
+}

@@ -6,7 +6,7 @@ import WhyNodeCore
 struct MapScreen: View {
     @ObservedObject var document: WhyNodeDocument
     @Environment(\.undoManager) private var undoManager
-    @Environment(\.newDocument) private var newDocument
+    @Environment(SettingsStore.self) private var settings
 
     @State private var ai = AIController()
     @State private var scale: CGFloat = 1
@@ -17,8 +17,8 @@ struct MapScreen: View {
     @State private var expanded: Set<WID> = []
     @State private var prompt: PromptRequest?
     @State private var promptText = ""
-    @State private var showImporter = false
     @State private var importError: String?
+    @State private var showSettings = false
 
     private var map: MindMap { document.map }
     private var effectiveScale: CGFloat { min(max(scale * zoomDelta, 0.2), 3) }
@@ -73,12 +73,19 @@ struct MapScreen: View {
         } message: {
             Text(ai.notice ?? importError ?? "")
         }
-        .fileImporter(isPresented: $showImporter, allowedContentTypes: [.json]) { result in
-            importV1(result)
+        .sheet(isPresented: $showSettings) {
+            AISetupView(mode: .settings) { showSettings = false }
+                .environment(settings)
         }
         .onAppear {
-            if map.root.status == .empty { ask(.root) }
+            updateProvider()
+            if !settings.isConfigured {
+                showSettings = true
+            } else if map.root.status == .empty {
+                ask(.root)
+            }
         }
+        .onChange(of: settings.ai) { updateProvider() }
     }
 
     // 좌표 변환
@@ -282,19 +289,16 @@ struct MapScreen: View {
             Button { scale = max(scale / 1.25, 0.2) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
             Button { scale = min(scale * 1.25, 3) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
             Button { scale = 1; offset = .zero } label: { Label("가운데로", systemImage: "scope") }
-            Button { showImporter = true } label: { Label("v1 가져오기", systemImage: "square.and.arrow.down") }
+            Button { showSettings = true } label: { Label("AI 설정", systemImage: "gearshape") }
         }
     }
 
-    private func importV1(_ result: Result<URL, Error>) {
+    private func updateProvider() {
         do {
-            let url = try result.get()
-            let accessing = url.startAccessingSecurityScopedResource()
-            defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-            let (map, _) = try V1Import.convert(Data(contentsOf: url))
-            newDocument { WhyNodeDocument(map: map) }
+            ai.provider = try settings.makeProvider()
         } catch {
-            importError = error.localizedDescription
+            ai.provider = nil
+            ai.notice = error.localizedDescription
         }
     }
 }

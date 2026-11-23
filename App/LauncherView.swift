@@ -7,10 +7,13 @@ struct LauncherView: View {
     @Environment(\.newDocument) private var newDocument
     @Environment(\.openDocument) private var openDocument
     @Environment(\.dismissWindow) private var dismissWindow
+    @Environment(\.openSettings) private var openSettings
+    @Environment(SettingsStore.self) private var settings
 
     @State private var recent: [URL] = []
     @State private var importing: ImportKind?
     @State private var errorMessage: String?
+    @State private var showOnboarding = false
 
     enum ImportKind {
         case open, v1
@@ -37,6 +40,14 @@ struct LauncherView: View {
                 action("프로젝트 열기…", systemImage: "folder") { importing = .open }
                 action("v1 파일 가져오기…", systemImage: "square.and.arrow.down") { importing = .v1 }
                 Spacer()
+                VStack(alignment: .leading, spacing: 6) {
+                    Label(settings.ai?.summary ?? "AI가 연결되지 않았습니다", systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
+                        .font(.caption)
+                        .foregroundStyle(settings.isConfigured ? Color.secondary : Color.orange)
+                        .lineLimit(2)
+                    Button("AI 설정…") { openSettings() }
+                        .controlSize(.small)
+                }
             }
             .padding(32)
             .frame(width: 300)
@@ -72,7 +83,16 @@ struct LauncherView: View {
             .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .frame(minWidth: 680, minHeight: 420)
-        .onAppear(perform: loadRecent)
+        .onAppear {
+            loadRecent()
+            // 첫 실행에는 AI 연결부터 묻는다. 이후에는 저장된 설정을 그대로 쓴다.
+            showOnboarding = !settings.isConfigured
+        }
+        .sheet(isPresented: $showOnboarding) {
+            AISetupView(mode: .onboarding) { showOnboarding = false }
+                .environment(settings)
+                .interactiveDismissDisabled()
+        }
         .fileImporter(isPresented: importerBinding, allowedContentTypes: importing == .v1 ? [.json] : [.whynode]) { result in
             handleImport(result)
         }

@@ -23,6 +23,15 @@ public struct AnswerResponse: Codable, Equatable, Sendable {
         self.suggestions = suggestions
         self.refs = refs
     }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        answer = try c.decode(String.self, forKey: .answer)
+        summary = try c.decode(String.self, forKey: .summary)
+        suggestions = try c.decode([String].self, forKey: .suggestions)
+        // 참조가 없으면 생략하는 모델이 있어 빈 배열로 받는다.
+        refs = try c.decodeIfPresent([RawRef].self, forKey: .refs) ?? []
+    }
 }
 
 public struct SuggestResponse: Codable, Equatable, Sendable {
