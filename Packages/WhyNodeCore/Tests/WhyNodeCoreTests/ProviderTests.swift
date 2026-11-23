@@ -76,3 +76,26 @@ struct ProviderParsingTests {
     }
     #endif
 }
+
+#if os(macOS)
+@Suite("agy 상시 연결")
+struct ACPTests {
+    /// `WHYNODE_LIVE_ACP=1`일 때만 실제 `agy acp`로 두 번 연속 요청한다.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["WHYNODE_LIVE_ACP"] != nil))
+    func 상시_연결로_두_번_요청한다() async throws {
+        let executable = try #require(CLIProvider.locate("agy"))
+        let client = ACPClient(executable: executable)
+        let started = ContinuousClock.now
+        try await client.start()
+        print("ACP 연결", ContinuousClock.now - started)
+        let provider = ACPProvider(client: client, model: ProcessInfo.processInfo.environment["WHYNODE_LIVE_ACP_MODEL"] ?? "")
+        for round in 1...2 {
+            let begin = ContinuousClock.now
+            let suggestions = try await ConnectionTest.run(provider)
+            print("ACP 요청 \(round)", ContinuousClock.now - begin, suggestions)
+            #expect(!suggestions.isEmpty)
+        }
+        await client.shutdown()
+    }
+}
+#endif

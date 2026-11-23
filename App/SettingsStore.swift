@@ -23,15 +23,46 @@ final class SettingsStore {
         }
         UserDefaults.standard.set(try JSONEncoder().encode(settings), forKey: Self.settingsKey)
         ai = settings
+        #if os(macOS)
+        // agy를 더 쓰지 않으면 상시 연결을 닫는다.
+        if !(settings.connection == .cli && settings.provider == .google), let client = acpClient {
+            acpClient = nil
+            Task { await client.shutdown() }
+        }
+        #endif
     }
+
+    #if os(macOS)
+    /// agy 상시 연결. 앱 실행 동안 하나만 유지한다.
+    @ObservationIgnored private var acpClient: ACPClient?
+
+    private func sharedACPClient(executable: URL) -> ACPClient {
+        if let acpClient, acpClient.executable == executable { return acpClient }
+        if let old = acpClient { Task { await old.shutdown() } }
+        let client = ACPClient(executable: executable)
+        acpClient = client
+        return client
+    }
+    #endif
 
     /// 저장된 설정으로 프로바이더를 만든다. 설정 전이면 nil.
     func makeProvider() throws -> (any AIProvider)? {
         guard let ai else { return nil }
-        return try Self.makeProvider(ai, apiKey: Keychain.apiKey(for: ai.provider))
+        return try makeProvider(ai, apiKey: Keychain.apiKey(for: ai.provider))
     }
 
-    static func makeProvider(_ settings: AISettings, apiKey: String?) throws -> any AIProvider {
+    /// agy는 상시 연결을 미리 열어 첫 요청을 기다리지 않게 한다.
+    func warmUp() {
+        #if os(macOS)
+        guard let ai, ai.connection == .cli, ai.provider == .google,
+              let executable = CLIProvider.locate(ai.provider.cliTool)
+        else { return }
+        let client = sharedACPClient(executable: executable)
+        Task { try? await client.start() }
+        #endif
+    }
+
+    func makeProvider(_ settings: AISettings, apiKey: String?) throws -> any AIProvider {
         switch settings.connection {
         case .apiKey:
             guard let apiKey, !apiKey.isEmpty else { throw ProviderError.missingAPIKey }
@@ -46,6 +77,9 @@ final class SettingsStore {
             guard settings.provider.supportsCLI else { throw ProviderError.notSupported(settings.provider.cliDisplayName) }
             guard let executable = CLIProvider.locate(settings.provider.cliTool) else {
                 throw ProviderError.cliNotFound(settings.provider.cliTool)
+            }
+            if settings.provider == .google {
+                return ACPProvider(client: sharedACPClient(executable: executable), model: settings.model)
             }
             return CLIProvider(kind: settings.provider, executable: executable, model: settings.model)
             #else

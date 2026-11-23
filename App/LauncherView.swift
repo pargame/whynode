@@ -87,6 +87,7 @@ struct LauncherView: View {
             loadRecent()
             // 첫 실행에는 AI 연결부터 묻는다. 이후에는 저장된 설정을 그대로 쓴다.
             showOnboarding = !settings.isConfigured
+            settings.warmUp()
         }
         .sheet(isPresented: $showOnboarding) {
             AISetupView(mode: .onboarding) { showOnboarding = false }

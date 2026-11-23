@@ -126,9 +126,15 @@ struct AISetupView: View {
             if customModel {
                 TextField("모델 ID", text: $model)
             }
-            if provider == .anthropic {
+            switch provider {
+            case .anthropic:
                 Text("빠른 응답과 적은 사용량을 원하면 Haiku를 권장합니다.")
                     .font(.caption).foregroundStyle(.secondary)
+            case .google:
+                Text("앱이 켜져 있는 동안 agy와 연결을 유지합니다. 빠른 응답을 원하면 Gemini 3.8 Flash (Low)를 권장합니다.")
+                    .font(.caption).foregroundStyle(.secondary)
+            case .openai:
+                EmptyView()
             }
             Text("이 Mac에서 \(provider.cliTool)에 로그인되어 있으면 그 계정의 구독 요금제를 그대로 씁니다. WhyNode는 로그인 정보를 다루지 않습니다.")
                 .font(.caption)
@@ -294,7 +300,7 @@ struct AISetupView: View {
         let key = apiKey
         Task {
             do {
-                let provider = try SettingsStore.makeProvider(draft, apiKey: key)
+                let provider = try settings.makeProvider(draft, apiKey: key)
                 let samples = try await ConnectionTest.run(provider)
                 testState = .passed(samples)
             } catch {
