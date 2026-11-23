@@ -159,6 +159,9 @@ enum CLIProcess {
         var environment = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         environment["PATH"] = ["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", environment["PATH"] ?? "/usr/bin:/bin"].joined(separator: ":")
+        // 요청마다 내용이 달라 캐시를 다시 읽는 일이 없으므로, 기본 1시간 캐시 쓰기(입력 단가 2배)를 끈다.
+        // 같은 요청 실측 비용이 약 25% 줄었다. agy는 이 변수를 쓰지 않는다.
+        environment["DISABLE_PROMPT_CACHING"] = "1"
         process.environment = environment
 
         let stdout = Pipe()
