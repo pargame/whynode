@@ -313,7 +313,9 @@ struct MapScreen: View {
         let text = promptText
         switch request {
         case .root:
+            let previous = map.root.question
             document.perform("주제 입력", undoManager: undoManager) { $0.setRootQuestion(text) }
+            renameProject(from: previous)
             if map.root.status == .pending { start(map.rootId) }
         case .custom(let parent):
             var created: WID?
@@ -327,7 +329,9 @@ struct MapScreen: View {
                 arrange(around: created)
             }
         case .edit(let id):
+            let previous = map.root.question
             document.perform("질문 수정", undoManager: undoManager) { $0.editQuestion(id, to: text) }
+            if id == map.rootId { renameProject(from: previous) }
             if map[id]?.status == .pending { start(id) }
         }
     }
@@ -493,6 +497,13 @@ struct MapScreen: View {
                 markDocumentEdited()
             }
         }
+    }
+
+    /// 프로젝트 파일 이름을 루트 주제(첫 노드의 질문)로 맞춘다. 사용자가 직접 바꾼 이름은 그대로 둔다.
+    private func renameProject(from previousTopic: String) {
+        #if os(macOS)
+        ProjectFiles.renameToTopic(canvas.window?.windowController?.document as? NSDocument, previousTopic: previousTopic, topic: map.root.question)
+        #endif
     }
 
     /// 자동 정리를 결과 반영 없이 멈춘다.

@@ -12,8 +12,17 @@ enum ProjectFiles {
     }
 
     /// `map`을 `folder/name.whynode`로 저장하고 경로를 돌려준다. 같은 이름이 있으면 `name 2`, `name 3`…으로 피한다.
+    static let untitledName = "새 프로젝트"
+
     static func create(_ map: MindMap, name: String, in folder: URL) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        let url = availableURL(for: name, in: folder)
+        try WhyNodeCodec.encode(map.file).write(to: url, options: .withoutOverwriting)
+        return url
+    }
+
+    /// `folder`에서 겹치지 않는 `name.whynode` 경로. 있으면 `name 2`, `name 3`…
+    static func availableURL(for name: String, in folder: URL) -> URL {
         let base = sanitized(name)
         var url = folder.appendingPathComponent(base).appendingPathExtension("whynode")
         var number = 2
@@ -21,16 +30,35 @@ enum ProjectFiles {
             url = folder.appendingPathComponent("\(base) \(number)").appendingPathExtension("whynode")
             number += 1
         }
-        try WhyNodeCodec.encode(map.file).write(to: url, options: .withoutOverwriting)
         return url
     }
 
+    /// 파일 이름이 앱이 자동으로 붙인 이름인지. `새 프로젝트`나 이전 주제(뒤에 ` 2` 같은 번호 포함)면 자동 이름으로 본다.
+    /// 사용자가 직접 바꾼 이름은 주제가 바뀌어도 건드리지 않는다.
+    static func isAutoName(_ fileName: String, previousTopic: String) -> Bool {
+        let candidates = [untitledName, sanitized(previousTopic)]
+        return candidates.contains { base in
+            fileName == base || (fileName.hasPrefix(base + " ") && Int(fileName.dropFirst(base.count + 1)) != nil)
+        }
+    }
+
     /// 파일 이름에 쓸 수 없는 문자를 바꾸고 너무 길면 자른다.
-    private static func sanitized(_ name: String) -> String {
+    static func sanitized(_ name: String) -> String {
         let cleaned = name.replacingOccurrences(of: "/", with: "-").replacingOccurrences(of: ":", with: "-")
             .trimmingCharacters(in: .whitespacesAndNewlines)
         let short = String(cleaned.prefix(60))
-        return short.isEmpty ? "새 프로젝트" : short
+        return short.isEmpty ? untitledName : short
+    }
+
+    /// 프로젝트 파일 이름을 루트 주제로 맞춘다. 자동 이름일 때만 바꾸고, 같은 폴더 안에서 옮긴다.
+    @MainActor
+    static func renameToTopic(_ document: NSDocument?, previousTopic: String, topic: String) {
+        guard let document, let url = document.fileURL,
+              !topic.isEmpty, sanitized(topic) != url.deletingPathExtension().lastPathComponent,
+              isAutoName(url.deletingPathExtension().lastPathComponent, previousTopic: previousTopic)
+        else { return }
+        let target = availableURL(for: topic, in: url.deletingLastPathComponent())
+        document.move(to: target) { _ in }
     }
 }
 
