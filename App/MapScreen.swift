@@ -191,11 +191,12 @@ struct MapScreen: View {
                 created = $0.addChild(of: parentId, suggestion: suggestion.id)
             }
         }
-        if let created { start(created) }
+        // 포커스를 부모에 그대로 두어 남은 추가 질문을 이어서 고를 수 있게 한다.
+        if let created { start(created, focus: false) }
     }
 
-    private func start(_ id: WID) {
-        focusedId = id
+    private func start(_ id: WID, focus: Bool = true) {
+        if focus { focusedId = id }
         ai.requestAnswer(for: id, in: document, undoManager: undoManager)
     }
 
@@ -257,7 +258,7 @@ struct MapScreen: View {
                     created = $0.addCustomChild(of: parent, question: text)
                 }
             }
-            if let created { start(created) }
+            if let created { start(created, focus: false) }
         case .edit(let id):
             document.perform("질문 수정", undoManager: undoManager) { $0.editQuestion(id, to: text) }
             if map[id]?.status == .pending { start(id) }
