@@ -142,14 +142,28 @@ struct MapScreen: View {
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
+    /// 칩 영역을 카드 폭 안에서 두 열로 나눈다.
+    private static let chipSpacing: CGFloat = 8
+    private static let chipColumnWidth = (NodeBubble.expandedWidth - chipSpacing) / 2
+    private static let chipPadding: CGFloat = 14
+
+    /// 왼쪽 열은 추가 질문과 직접 질문, 오른쪽 열은 미사용 추가 질문을 새 질문 3개로 바꾸는 버튼이다 (SPEC 2.3).
     private func suggestionChips(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
-        VStack(spacing: 8) {
-            ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
+        HStack(alignment: .top, spacing: Self.chipSpacing) {
+            VStack(spacing: Self.chipSpacing) {
+                ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
+                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
+                }
+                chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
+                    ask(.custom(parent: node.id))
+                }
             }
-            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
-                ask(.custom(parent: node.id))
+            let suggesting = ai.suggesting.contains(node.id)
+            chip(Text("\(Image(systemName: "arrow.clockwise"))  다른 질문 3개").foregroundStyle(.secondary), textScale: textScale, zoom: zoom) {
+                ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
             }
+            .disabled(suggesting)
+            .opacity(suggesting ? 0.5 : 1)
         }
     }
 
@@ -157,9 +171,10 @@ struct MapScreen: View {
         Button(action: action) {
             label
                 .font(.scaled(.callout, textScale))
-                .lineLimit(2)
-                .frame(maxWidth: NodeBubble.expandedWidth - 40)
-                .padding(.horizontal, 14)
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+                .frame(width: Self.chipColumnWidth - 2 * Self.chipPadding)
+                .padding(.horizontal, Self.chipPadding)
                 .padding(.vertical, 9)
                 .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
                 .overlay(Capsule().stroke(Color.accentColor.opacity(0.6), lineWidth: 1 / zoom))

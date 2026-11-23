@@ -64,17 +64,16 @@ struct PhysicsControl: View {
         VStack(alignment: .leading, spacing: 12) {
             row("반발력", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.5)
             row("장력", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.05)
-            row("링크 거리", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 10)
+            row("링크 거리", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 2)
             row("중심력", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
-            HStack {
-                Text("루트는 고정됩니다.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Button("기본값") { settings = .default }
-                    .controlSize(.small)
-                    .disabled(settings == .default)
-            }
+            Text("루트는 고정됩니다. 링크 거리는 두 원 가장자리 사이의 선 길이입니다.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            Button("기본값으로 설정") { settings = .default }
+                .controlSize(.small)
+                .disabled(settings == .default)
+                .frame(maxWidth: .infinity)
         }
     }
 

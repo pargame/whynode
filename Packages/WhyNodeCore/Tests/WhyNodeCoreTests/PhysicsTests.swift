@@ -73,10 +73,10 @@ struct PhysicsTests {
             return children.map { distance($0, root) }.reduce(0, +) / Double(children.count)
         }
         var near = PhysicsSettings.default
-        near.linkDistance = 200
+        near.linkDistance = 0
         var far = PhysicsSettings.default
-        far.linkDistance = 500
-        #expect(meanDistance(far) > meanDistance(near) + 150)
+        far.linkDistance = 80
+        #expect(meanDistance(far) > meanDistance(near) + 40)
     }
 
     @Test func 잡은_노드는_손가락_위치에_있고_놓으면_다시_움직인다() throws {
@@ -110,6 +110,6 @@ struct PhysicsTests {
 
     @Test func 범위를_벗어난_조절값은_맞춘다() {
         let wild = PhysicsSettings(repel: -5, tension: 3, linkDistance: .nan, gravity: 0.5).clamped
-        #expect(wild == PhysicsSettings(repel: 0, tension: 1, linkDistance: 40, gravity: 0.5))
+        #expect(wild == PhysicsSettings(repel: 0, tension: 2, linkDistance: 0, gravity: 0.5))
     }
 }

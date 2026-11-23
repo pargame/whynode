@@ -50,7 +50,8 @@ final class AIController {
         }
     }
 
-    func requestSuggestions(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?, exclude: [String] = []) {
+    /// `limit`이 있으면 검증을 통과한 추가 질문 중 앞에서부터 그 개수만 쓴다.
+    func requestSuggestions(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?, exclude: [String] = [], limit: Int? = nil) {
         guard !suggesting.contains(id),
               let context = ContextBuilder.suggest(for: id, in: document.map, exclude: exclude)
         else { return }
@@ -67,7 +68,8 @@ final class AIController {
             }
             do {
                 let response = try await retryingOnce { try await provider.suggest(context) }
-                let (kept, _) = ResponseValidator.validate(response, for: id, in: document.map)
+                let (validated, _) = ResponseValidator.validate(response, for: id, in: document.map)
+                let kept = limit.map { Array(validated.prefix($0)) } ?? validated
                 guard !kept.isEmpty else {
                     notice = "새로운 추가 질문을 찾지 못했습니다."
                     return

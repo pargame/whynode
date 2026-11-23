@@ -6,17 +6,18 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
     public var repel: Double
     /// 선으로 이어진 노드가 링크 거리로 돌아가려는 힘
     public var tension: Double
-    /// 선의 목표 길이
+    /// 선의 목표 길이. 노드 중심이 아니라 두 원의 가장자리 사이, 즉 화면에 보이는 선 길이다.
     public var linkDistance: Double
     /// 루트 쪽으로 모으는 힘
     public var gravity: Double
 
-    public static let `default` = PhysicsSettings(repel: 8, tension: 0.6, linkDistance: 240, gravity: 0.1)
+    /// 기본값은 슬라이더 가운데에 오도록 각 범위의 중간값으로 둔다.
+    public static let `default` = PhysicsSettings(repel: 5, tension: 1, linkDistance: 40, gravity: 0.8)
 
-    public static let repelRange: ClosedRange<Double> = 0...20
-    public static let tensionRange: ClosedRange<Double> = 0...1
-    public static let linkDistanceRange: ClosedRange<Double> = 40...600
-    public static let gravityRange: ClosedRange<Double> = 0...1
+    public static let repelRange: ClosedRange<Double> = 0...10
+    public static let tensionRange: ClosedRange<Double> = 0...2
+    public static let linkDistanceRange: ClosedRange<Double> = 0...80
+    public static let gravityRange: ClosedRange<Double> = 0...1.6
 
     public init(repel: Double, tension: Double, linkDistance: Double, gravity: Double) {
         self.repel = repel
@@ -41,7 +42,8 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
 /// d3-force와 같은 방식으로 온도(alpha)가 식어 가며, 루트와 사용자가 잡고 있는 노드만 고정한다.
 public struct ForceSimulation: Sendable {
     public static let nodeRadius = 70.0
-    static let collisionPadding = 18.0
+    /// 원끼리 최소 이만큼(양쪽 합 2배) 떨어진다. 링크 거리 0에 가까운 값도 차이가 나도록 작게 둔다.
+    static let collisionPadding = 4.0
     static let alphaMin = 0.001
     static let alphaDecay = 1 - pow(alphaMin, 1.0 / 300)
     static let velocityDecay = 0.4
@@ -173,7 +175,8 @@ public struct ForceSimulation: Sendable {
             var d = (position[link.target] + velocity[link.target]) - (position[link.source] + velocity[link.source])
             if d == .zero { d = jitter(link.target) }
             let length = (d * d).sum().squareRoot()
-            let k = (length - settings.linkDistance) / length * alpha * strength
+            let target = settings.linkDistance + 2 * Self.nodeRadius
+            let k = (length - target) / length * alpha * strength
             let delta = d * k
             velocity[link.target] -= delta * link.bias
             velocity[link.source] += delta * (1 - link.bias)
