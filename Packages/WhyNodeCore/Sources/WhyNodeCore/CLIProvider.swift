@@ -1,4 +1,5 @@
 import Foundation
+import Synchronization
 
 /// 모델 선택지 (ID와 화면 표시명)
 public struct ModelOption: Hashable, Sendable, Identifiable {
@@ -123,8 +124,22 @@ public struct CLIProvider: AIProvider {
         }
     }
 
+    /// 찾은 CLI 위치. 로그인 셸 실행은 수백 ms가 걸려 화면을 멈추므로 한 번만 찾는다.
+    /// 못 찾은 결과는 남기지 않아, 설치한 뒤 다시 시도하면 새로 찾는다.
+    private static let located = Mutex<[String: URL]>([:])
+
     /// GUI 앱은 PATH가 짧으므로 흔한 설치 위치와 로그인 셸의 PATH에서 CLI를 찾는다.
     public static func locate(_ tool: String) -> URL? {
+        if let cached = located.withLock({ $0[tool] }) {
+            if FileManager.default.isExecutableFile(atPath: cached.path) { return cached }
+            located.withLock { $0[tool] = nil }
+        }
+        guard let url = search(tool) else { return nil }
+        located.withLock { $0[tool] = url }
+        return url
+    }
+
+    private static func search(_ tool: String) -> URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates = ["\(home)/.local/bin", "/opt/homebrew/bin", "/usr/local/bin", "\(home)/.npm-global/bin", "\(home)/bin"]
         for dir in candidates {

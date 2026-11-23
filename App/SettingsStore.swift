@@ -61,14 +61,17 @@ final class SettingsStore {
         return try makeProvider(ai, apiKey: Keychain.apiKey(for: ai.provider))
     }
 
-    /// agy는 상시 연결을 미리 열어 첫 요청을 기다리지 않게 한다.
+    /// CLI 위치를 백그라운드에서 미리 찾아 두어 맵 화면이 로그인 셸 실행을 기다리지 않게 한다.
+    /// agy는 상시 연결도 미리 열어 첫 요청을 기다리지 않게 한다.
     func warmUp() {
         #if os(macOS)
-        guard let ai, ai.connection == .cli, ai.provider == .google,
-              let executable = CLIProvider.locate(ai.provider.cliTool)
-        else { return }
-        let client = sharedACPClient(executable: executable)
-        Task { try? await client.start() }
+        guard let ai, ai.connection == .cli, ai.provider.supportsCLI else { return }
+        let tool = ai.provider.cliTool
+        Task {
+            let executable = await Task.detached { CLIProvider.locate(tool) }.value
+            guard let executable, ai.provider == .google else { return }
+            try? await sharedACPClient(executable: executable).start()
+        }
         #endif
     }
 
