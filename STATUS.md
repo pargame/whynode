@@ -5,23 +5,38 @@
 ## 핵심 구조
 
 ```text
-App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
-├ WhyNodeApp      시작 화면 창 + DocumentGroup   ├ Model / Codec     .whynode 구조 · 저장 형식 (SPEC 7)
-├ LauncherView    새 프로젝트 · 열기 · 최근 · v1   ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
-├ MapScreen       캔버스 · 추가 질문 칩 · 메뉴      ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
-├ NodeBubble      노드 (원 → 포커스 시 아래로 넓어지는 카드)
-├ AnswerView      답변 서식 블록 그리기                  ├ V1Import          v1 파일 변환 (SPEC 7.7)
-├ AIController    요청 → 검증 → 문서 반영          ├ Context           AI 맥락 패키지 (SPEC 6.1)
-├ SettingsStore   AI 설정 저장 · 프로바이더 생성   ├ Validation        응답 검증 · 중복 제거 (SPEC 6.4)
-├ AISetupView     첫 실행 안내 · 설정 화면         ├ Prompt / ResponseParsing  시스템 프롬프트(v2) · JSON 추출
-├ PhysicsControl  시뮬레이션 버튼 · 조절값 패널     ├ Physics           시뮬레이션 · 조절값 (SPEC 2.6)
+App (SwiftUI 문서 앱)
+├ WhyNodeApp        시작 화면 창 + DocumentGroup + 보기 메뉴(글자 크기)
+├ LauncherView      새 프로젝트 · 열기 · 최근 · v1 가져오기
+├ MapScreen         캔버스 · 추가 질문 칩 · 메뉴 · 제스처 · 시뮬레이션 제어
+├ CanvasModel       카메라 · 끌기 · 핀치 · 시뮬레이션 상태, 노드 층 · 선 층
+├ CanvasParts       애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 (macOS)
+├ NodeBubble        노드 (원 → 포커스 시 아래로 넓어지는 카드)
+├ AnswerView        답변 서식 블록 그리기
+├ AIController      요청 → 검증 → 문서 반영, 동시 요청 한도
+├ WhyNodeDocument   파일 읽기/쓰기 · 실행 취소 · 진행 중 요청(inFlight)
+├ SettingsStore     AI 설정 · 물리 조절값 · 글자 크기 저장, 프로바이더 생성, agy 공유 연결
+├ AISetupView       첫 실행 안내 · 설정 화면
+├ PhysicsControl    시뮬레이션 버튼 · 조절값 패널
+├ Theme             라이트 · 다크 의미 색, 글자 크기 반영 글꼴(Font.scaled)
+└ SnapshotRenderer  디버그용 화면 PNG 렌더
+
+WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
+├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3 이전 (SPEC 7)
+├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
+├ Integrity         열 때 무결성 복구 (SPEC 7.5)
+├ V1Import          v1 파일 변환 (SPEC 7.7)
+├ Layout            새 노드 초기 자리 (부채꼴)
+├ Physics           시뮬레이션 · 조절값 (SPEC 2.6)
+├ Context           AI 맥락 패키지 (SPEC 6.1)
+├ Validation        응답 검증 · 중복 제거 (SPEC 6.4)
+├ Prompt / ResponseParsing  시스템 프롬프트(v2) · JSON 추출
 ├ AnswerFormat      답변 서식 블록 · 인라인 해석 (SPEC 6.5)
-├ WhyNodeDocument 파일 읽기/쓰기 · 실행 취소       ├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
-├ Theme           라이트 · 다크 의미 색
-├ CanvasModel     카메라 · 끌기 · 시뮬레이션 상태, 노드 층 · 선 층
-├ CanvasParts     애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 (macOS)           ├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기 · 모델 목록 (macOS)
-├ ACPClient         ③ agy 상시 연결 (agy acp, 전용 에이전트 · 빈 설정 폴더, macOS)
-└ SnapshotRenderer 디버그용 화면 PNG 렌더          └ HTTPProviders     ① Gemini · Claude · OpenAI API
+├ AIConfig          회사 · 연결 방식 · 오류 · 연결 테스트
+├ Provider          AIProvider 인터페이스 · capabilities
+├ HTTPProviders     ① Gemini · Claude · OpenAI API
+├ CLIProvider       ③ claude 1회 실행 호출 · CLI 찾기(캐시) · 모델 목록 (macOS)
+└ ACPClient         ③ agy 상시 연결 (agy acp, 전용 에이전트 · 빈 설정 폴더, 요청 취소, macOS)
 ```
 
 * **데이터 흐름**: 화면 동작 → `WhyNodeDocument.perform`(UndoManager 등록 = 자동 저장 트리거) → `MindMap` 변경. AI가 필요하면 `AIController`가 `ContextBuilder`로 맥락을 만들어 프로바이더에 보내고, `ResponseValidator`를 거쳐 `MindMap.applyAnswer`로 반영합니다.
@@ -57,9 +72,15 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
+1. **앱 화면 실사용 확인**: 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지). agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
-4. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 새 노드 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
+4. **미구현 명세** (SPEC은 목표 설계, 아래는 아직 코드에 없음)
+   * 가지 묶음(SPEC 2.5, 8.3). 수동 `가지 접기`는 `collapsed` 저장과 "접힘" 표시만 하고 하위 노드를 숨기지 않는다.
+   * 참조선 끄기 화면 옵션(SPEC 2.4).
+   * 삭제 전 확인(SPEC 3.2). 지금은 바로 삭제하고 ⌘Z로 되돌린다.
+   * 질문 수정 시 "하위 노드는 유지됩니다" 안내(SPEC 3.2).
+   * 성능 설계(SPEC 8: `Canvas` 엔진 · 화면 밖 생략 · LOD · 새 노드 부분 배치 · 백그라운드 맥락 조립 · 검증), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).
+   * ② 공식 로그인(SPEC 5.1): 각 회사에 앱 등록이 필요해 설정 화면에 "준비 중"으로만 둔다.
 5. **agy 세션 열기 시간 초과 없음**: 질문 요청(`session/prompt`)은 시간 초과로 끊기지만, 연결 · 세션 열기(`start`, `session/new`, `session/set_model`)에서 agy가 멈추면 여전히 무한 대기한다.
-6. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), ② 공식 로그인(각 회사 앱 등록 필요), codex CLI(미설치로 미지원).
+6. **미검증**: API 키 연결 3종(키가 없어 실제 호출 미확인), iPad 빌드(Xcode에 iOS 플랫폼 미설치), codex CLI(미설치로 미지원).
