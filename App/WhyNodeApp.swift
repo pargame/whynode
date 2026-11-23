@@ -31,6 +31,20 @@ struct WhyNodeApp: App {
             let visible = context.defaultDisplay.visibleRect
             return WindowPlacement(visible.origin, size: visible.size)
         }
+        // 메뉴 막대 보기 > 글자 크게 (⌘=) · 글자 작게 (⌘-) · 기본 글자 크기 (⌘0)
+        .commands {
+            CommandGroup(after: .toolbar) {
+                Button("글자 크게") { settings.stepTextScale(1) }
+                    .keyboardShortcut("=")
+                    .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
+                Button("글자 작게") { settings.stepTextScale(-1) }
+                    .keyboardShortcut("-")
+                    .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
+                Button("기본 글자 크기") { settings.textScale = 1 }
+                    .keyboardShortcut("0")
+                Divider()
+            }
+        }
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {

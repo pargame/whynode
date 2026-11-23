@@ -7,12 +7,27 @@ import WhyNodeCore
 final class SettingsStore {
     private static let settingsKey = "ai.settings"
     private static let physicsKey = "physics.settings"
+    private static let textScaleKey = "text.scale"
 
     private(set) var ai: AISettings?
 
     /// 시뮬레이션 조절값 (SPEC 2.6). 프로젝트와 상관없이 앱 전체에서 유지한다.
     var physics: PhysicsSettings = .default {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(physics), forKey: Self.physicsKey) }
+    }
+
+    /// 캔버스 글자 크기 배율. 노드 크기는 그대로 두고 글자만 키운다. 앱 전체에서 유지한다.
+    var textScale: Double = 1 {
+        didSet { UserDefaults.standard.set(textScale, forKey: Self.textScaleKey) }
+    }
+
+    static let textScaleRange: ClosedRange<Double> = 0.8...1.8
+    static let textScaleStep = 0.1
+
+    /// 한 단계 키우거나(+1) 줄인다(-1). 0.1 단위로 맞춰 부동소수 오차가 쌓이지 않게 한다.
+    func stepTextScale(_ direction: Int) {
+        let next = ((textScale + Double(direction) * Self.textScaleStep) * 10).rounded() / 10
+        textScale = min(max(next, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound)
     }
 
     var isConfigured: Bool { ai != nil }
@@ -25,6 +40,8 @@ final class SettingsStore {
            let saved = try? JSONDecoder().decode(PhysicsSettings.self, from: data) {
             physics = saved.clamped
         }
+        let savedScale = UserDefaults.standard.double(forKey: Self.textScaleKey)
+        if Self.textScaleRange.contains(savedScale) { textScale = savedScale }
     }
 
     func save(_ settings: AISettings, apiKey: String?) throws {

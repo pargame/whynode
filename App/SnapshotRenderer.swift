@@ -14,6 +14,8 @@ enum SnapshotRenderer {
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
                 render(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("nodes-\(name).png"))
+                // 글자를 키워도 노드 크기는 그대로이고 생략(…)만 늘어나는지 본다.
+                render(scheme: name == "dark" ? .dark : .light, textScale: 1.5, to: directory.appendingPathComponent("nodes-large-\(name).png"))
                 renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
             }
         }
@@ -42,7 +44,7 @@ enum SnapshotRenderer {
         try? png.write(to: url)
     }
 
-    private static func render(scheme: ColorScheme, to url: URL) {
+    private static func render(scheme: ColorScheme, textScale: CGFloat = 1, to url: URL) {
         let now = Date()
         var map = MindMap.new(now: now)
         map.setRootQuestion("레이트레이싱", now: now)
@@ -71,7 +73,7 @@ enum SnapshotRenderer {
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
         func bubble(_ node: Node, focused: Bool) -> some View {
-            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, onRetry: {})
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, onRetry: {})
         }
         // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
         let content = HStack(alignment: .top, spacing: 28) {

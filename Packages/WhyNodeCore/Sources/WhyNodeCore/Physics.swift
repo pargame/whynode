@@ -15,7 +15,7 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
 
     public static let repelRange: ClosedRange<Double> = 0...20
     public static let tensionRange: ClosedRange<Double> = 0...1
-    public static let linkDistanceRange: ClosedRange<Double> = 80...600
+    public static let linkDistanceRange: ClosedRange<Double> = 40...600
     public static let gravityRange: ClosedRange<Double> = 0...1
 
     public init(repel: Double, tension: Double, linkDistance: Double, gravity: Double) {

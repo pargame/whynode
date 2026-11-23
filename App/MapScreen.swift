@@ -90,6 +90,7 @@ struct MapScreen: View {
                 isDimmed: isDimmed(node.id),
                 isSuggesting: ai.suggesting.contains(node.id),
                 isQuiet: canvas.isMoving,
+                textScale: settings.textScale,
                 onRetry: { retry(node.id) }
             )
             .equatable()
@@ -122,7 +123,7 @@ struct MapScreen: View {
     private func chip(_ label: Text, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
-                .font(.callout)
+                .font(.scaled(.callout, settings.textScale))
                 .lineLimit(2)
                 .frame(maxWidth: NodeBubble.expandedWidth - 40)
                 .padding(.horizontal, 14)
@@ -388,6 +389,10 @@ struct MapScreen: View {
             Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
             Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
             Button { animateCamera(scale: 1, offset: .zero) } label: { Label("가운데로", systemImage: "scope") }
+            Button { settings.stepTextScale(-1) } label: { Label("글자 작게", systemImage: "textformat.size.smaller") }
+                .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
+            Button { settings.stepTextScale(1) } label: { Label("글자 크게", systemImage: "textformat.size.larger") }
+                .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
             Button { showSettings = true } label: { Label("AI 설정", systemImage: "gearshape") }
         }
     }

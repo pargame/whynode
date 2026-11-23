@@ -27,8 +27,9 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 * **데이터 흐름**: 화면 동작 → `WhyNodeDocument.perform`(UndoManager 등록 = 자동 저장 트리거) → `MindMap` 변경. AI가 필요하면 `AIController`가 `ContextBuilder`로 맥락을 만들어 프로바이더에 보내고, `ResponseValidator`를 거쳐 `MindMap.applyAnswer`로 반영합니다.
 * **시뮬레이션**: 버튼을 누르면 `MapScreen`이 `ForceSimulation`을 만들고 `FrameTicker`로 매 프레임 한 틱씩 돌려 화면에만 반영하다가, 멈추는 순간 `MindMap.arrange`로 Undo 1회 반영합니다.
 * **화면 갱신 범위**: 카메라 · 노드 끌기 · 시뮬레이션처럼 매 프레임 바뀌는 값은 `CanvasModel`(@Observable)에 두고 `NodeLayer` · `EdgeLayer`만 읽습니다. `MapScreen.body`에서 이 값을 읽으면 매 프레임 화면 전체가 다시 계산되므로 피합니다(`isRunning`은 그래서 계산 프로퍼티가 아닌 저장 프로퍼티). 선은 시뮬레이션 중에만 `Canvas` 하나로 그리고, 평소에는 노드 애니메이션과 박자를 맞추는 `EdgeShape`를 씁니다.
+* **글자 크기**: `SettingsStore.textScale`(0.8~1.8, 0.1 단위)을 노드 질문 · 답변 · 추가 질문 칩 글꼴에만 곱합니다(`Font.scaled`). 노드 크기(원 140 · 카드 폭 380)는 고정이고, 원 안 질문 줄 수가 `4 / 배율`로 줄어 생략(…)이 늘어납니다. 도구 막대 버튼과 보기 메뉴 ⌘= · ⌘- · ⌘0.
 * **실행 취소와 AI 요청**: AI 답변도 Undo 단계입니다. 되돌린 결과에 진행 중 요청(`WhyNodeDocument.inFlight`)이 없는 대기 노드가 생기면 `interruptPending`으로 "중단됨" 오류 상태로 바꿔 다시 시도할 수 있게 합니다.
-* **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값은 UserDefaults(`ai.settings`, `physics.settings`), API 키는 Keychain(`com.pargame.whynode.apikey`).
+* **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값 · 글자 크기는 UserDefaults(`ai.settings`, `physics.settings`, `text.scale`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
 
 ## 확인 방법
@@ -39,7 +40,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
-| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>` → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음) |
+| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>` → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음). `nodes-large-*`는 글자 1.5배 |
 | 앱 실행 | `open WhyNode.app` (빌드 결과 바로가기). 이미 켜져 있으면 ⌘Q 후 다시 열어야 새 빌드가 뜸 |
 
 모든 빌드 명령에는 `DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer`를 붙입니다. 이 Xcode는 다른 작업(언리얼)과 공유하므로 `xcode-select`는 바꾸지 않습니다.

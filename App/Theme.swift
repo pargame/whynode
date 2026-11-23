@@ -36,6 +36,30 @@ enum Theme {
     }
 }
 
+extension Font {
+    /// 글자 크기 설정(`SettingsStore.textScale`)을 반영한 시스템 글꼴. 기준 크기는 플랫폼의 텍스트 스타일 크기를 따른다.
+    static func scaled(_ style: Font.TextStyle, _ scale: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
+        .system(size: baseSize(style) * scale, weight: weight, design: design)
+    }
+
+    private static func baseSize(_ style: Font.TextStyle) -> CGFloat {
+        #if os(macOS)
+        typealias PlatformFont = NSFont
+        #else
+        typealias PlatformFont = UIFont
+        #endif
+        let textStyle: PlatformFont.TextStyle = switch style {
+        case .caption: .caption1
+        case .caption2: .caption2
+        case .footnote: .footnote
+        case .subheadline: .subheadline
+        case .body: .body
+        default: .callout
+        }
+        return PlatformFont.preferredFont(forTextStyle: textStyle).pointSize
+    }
+}
+
 extension View {
     /// 불투명 바탕을 먼저 깔고 상태 색을 겹쳐, 뒤의 선이 글자 뒤로 비치지 않게 한다.
     func layeredFill<S: Shape>(_ shape: S, tint: Color) -> some View {
