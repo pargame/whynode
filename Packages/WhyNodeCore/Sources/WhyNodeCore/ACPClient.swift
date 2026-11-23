@@ -11,6 +11,8 @@ public actor ACPClient {
     private var pending: [Int: CheckedContinuation<Data, Error>] = [:]
     private var sessionText: [String: String] = [:]
     private var starting: Task<Void, Error>?
+    /// 마지막 요청의 토큰 사용량 (`session/prompt` 응답의 `usage`). 실측 확인용.
+    public private(set) var lastUsage: [String: Int]?
 
     public init(executable: URL) {
         self.executable = executable
@@ -39,7 +41,7 @@ public actor ACPClient {
         }
         sessionText[sessionId] = ""
         do {
-            _ = try await withThrowingTaskGroup(of: Data.self) { group in
+            let result = try await withThrowingTaskGroup(of: Data.self) { group in
                 group.addTask { try await self.prompt(sessionId: sessionId, text: text) }
                 group.addTask {
                     try await Task.sleep(for: timeout)
@@ -48,6 +50,8 @@ public actor ACPClient {
                 defer { group.cancelAll() }
                 return try await group.next()!
             }
+            let object = try? JSONSerialization.jsonObject(with: result) as? [String: Any]
+            lastUsage = object?["usage"] as? [String: Int]
         } catch {
             notify("session/cancel", ["sessionId": sessionId])
             throw error
@@ -72,10 +76,45 @@ public actor ACPClient {
         return url
     }
 
+    /// agy 설정 폴더 대신 쓰는 빈 폴더. 사용자의 전역 규칙 · 스킬 · 플러그인 · MCP를 싣지 않고,
+    /// WhyNode 세션 기록이 사용자의 `~/.gemini`에 쌓이지 않게 한다. 로그인은 Keychain에서 읽으므로 영향이 없다.
+    static var geminiDir: URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("WhyNodeAgy", isDirectory: true)
+        try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    static let agentName = "whynode"
+
+    /// 도구가 없는 WhyNode 전용 에이전트. 본문이 시스템 프롬프트가 되어 agy 기본 코딩 에이전트의 지시문 · 도구 선언을 대신한다.
+    /// 프롬프트 버전이 바뀌어도 맞도록 연결할 때마다 새로 쓴다.
+    static func writeAgent() throws {
+        let directory = workdir.appendingPathComponent(".agents/agents", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let body = """
+        ---
+        name: \(agentName)
+        description: WhyNode 질의응답 전용 에이전트
+        tools: []
+        mainAgent: true
+        subagent: false
+        ---
+        \(Prompt.system)
+
+        """
+        try Data(body.utf8).write(to: directory.appendingPathComponent("\(agentName).md"), options: .atomic)
+    }
+
     private func launch() async throws {
         let process = Process()
         process.executableURL = executable
-        process.arguments = ["acp", "--disable-telemetry"]
+        do {
+            try Self.writeAgent()
+        } catch {
+            throw ProviderError.cliFailed("WhyNode 에이전트 파일을 만들지 못했습니다: \(error.localizedDescription)")
+        }
+        // 기본 연결은 호출당 약 11.7k 토큰, 전용 에이전트 + 빈 설정 폴더는 약 2.2k (STATUS.md 측정 기록).
+        process.arguments = ["acp", "--disable-telemetry", "--agent", Self.agentName, "--gemini-dir", Self.geminiDir.path]
         process.currentDirectoryURL = Self.workdir
         var environment = ProcessInfo.processInfo.environment
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -214,9 +253,9 @@ public struct ACPProvider: AIProvider {
         return try Self.pick(SuggestResponse.self, from: text, usable: { !$0.suggestions.isEmpty })
     }
 
-    /// ACP에는 시스템 프롬프트 지정이 없어 본문 앞에 붙인다.
+    /// 시스템 프롬프트는 전용 에이전트 본문에 있으므로 맥락만 보낸다.
     static func message(for context: ContextPackage) -> String {
-        "\(Prompt.system)\n\n\(Prompt.userMessage(for: context))"
+        Prompt.userMessage(for: context)
     }
 
     static func pick<T: Decodable>(_ type: T.Type, from text: String, usable: (T) -> Bool) throws -> T {

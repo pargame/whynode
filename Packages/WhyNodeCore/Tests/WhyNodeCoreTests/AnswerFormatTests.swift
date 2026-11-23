@@ -69,8 +69,9 @@ struct LiveAnswerFormatTests {
         let tool = ProcessInfo.processInfo.environment["WHYNODE_LIVE_ANSWER"]!
         let kind = try #require(ProviderKind.allCases.first { $0.cliTool == tool })
         let executable = try #require(CLIProvider.locate(tool))
+        let client = ACPClient(executable: executable)
         let provider: any AIProvider = kind == .google
-            ? ACPProvider(client: ACPClient(executable: executable), model: "gemini-3.8-flash-low")
+            ? ACPProvider(client: client, model: ProcessInfo.processInfo.environment["WHYNODE_LIVE_ACP_MODEL"] ?? "gemini-3.8-flash-low")
             : CLIProvider(kind: kind, executable: executable, model: "haiku")
         var map = MindMap.new()
         map.setRootQuestion("TCP 3-way handshake")
@@ -79,6 +80,7 @@ struct LiveAnswerFormatTests {
         print("RAW\n\(response.answer)\nBLOCKS")
         for block in AnswerFormat.blocks(from: response.answer) { print(block) }
         print("SUMMARY", response.summary, "SUGGESTIONS", response.suggestions)
+        if kind == .google { print("USAGE", await client.lastUsage ?? [:]) }
     }
 }
 #endif

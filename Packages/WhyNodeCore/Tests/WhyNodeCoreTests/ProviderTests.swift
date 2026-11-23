@@ -92,7 +92,7 @@ struct ACPTests {
         for round in 1...2 {
             let begin = ContinuousClock.now
             let suggestions = try await ConnectionTest.run(provider)
-            print("ACP 요청 \(round)", ContinuousClock.now - begin, suggestions)
+            print("ACP 요청 \(round)", ContinuousClock.now - begin, await client.lastUsage ?? [:], suggestions)
             #expect(!suggestions.isEmpty)
         }
         await client.shutdown()
