@@ -72,6 +72,7 @@ struct MapScreen: View {
                 ask(.root)
             }
         }
+        .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
         .onChange(of: settings.ai) { updateProvider() }
         .onChange(of: map.nodes.count) { canvas.simulation?.sync(with: map) }
         .onDisappear { finishPhysics() }
@@ -109,6 +110,15 @@ struct MapScreen: View {
         }
         // 펼친 노드 위에서의 핀치는 화면 확대 대신 이 노드의 글자 크기를 바꾼다. 노드 크기는 그대로다.
         .gesture(textPinchGesture(for: node), including: focused ? .all : .subviews)
+    }
+
+    private var focusedNodeHasTextScale: Bool {
+        focusedId.flatMap { map[$0] }.map { $0.textScale != 1 } ?? false
+    }
+
+    private func resetTextScale(_ id: WID?) {
+        guard let id else { return }
+        document.perform("글자 크기 원래대로", undoManager: undoManager) { $0.setTextScale(id, 1) }
     }
 
     private func textPinchGesture(for node: Node) -> some Gesture {
@@ -205,6 +215,9 @@ struct MapScreen: View {
             Button("답변 다시 받기") { retry(node.id) }
                 .disabled(node.status == .pending)
             Button("질문 수정…") { ask(.edit(node.id), initial: node.question) }
+        }
+        if node.textScale != 1 {
+            Button("글자 크기 원래대로") { resetTextScale(node.id) }
         }
         if node.id != map.rootId, !map.childIDs(of: node.id).isEmpty {
             Button(node.collapsed ? "가지 펼치기" : "가지 접기") {

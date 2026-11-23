@@ -31,20 +31,7 @@ struct WhyNodeApp: App {
             let visible = context.defaultDisplay.visibleRect
             return WindowPlacement(visible.origin, size: visible.size)
         }
-        // 메뉴 막대 보기 > 글자 크게 (⌘=) · 글자 작게 (⌘-) · 기본 글자 크기 (⌘0)
-        .commands {
-            CommandGroup(after: .toolbar) {
-                Button("글자 크게") { settings.stepTextScale(1) }
-                    .keyboardShortcut("=")
-                    .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-                Button("글자 작게") { settings.stepTextScale(-1) }
-                    .keyboardShortcut("-")
-                    .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
-                Button("기본 글자 크기") { settings.textScale = 1 }
-                    .keyboardShortcut("0")
-                Divider()
-            }
-        }
+        .commands { TextSizeCommands(settings: settings) }
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {
@@ -64,6 +51,34 @@ struct WhyNodeApp: App {
         }
         #endif
     }
+}
+
+/// 메뉴 막대 보기 > 글자 크게 (⌘=) · 글자 작게 (⌘-) · 글자 크기 원래대로 (⌘0)
+struct TextSizeCommands: Commands {
+    let settings: SettingsStore
+    /// 포커스된 노드의 글자 크기가 바뀌어 있으면 그 노드를 되돌리는 동작
+    @FocusedValue(\.resetFocusedNodeTextScale) private var resetNode
+
+    var body: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button("글자 크게") { settings.stepTextScale(1) }
+                .keyboardShortcut("=")
+                .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
+            Button("글자 작게") { settings.stepTextScale(-1) }
+                .keyboardShortcut("-")
+                .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
+            // 노드를 먼저 되돌리고, 노드가 원래 크기면 앱 전체 글자 크기를 되돌린다.
+            Button(resetNode == nil ? "기본 글자 크기" : "노드 글자 크기 원래대로") {
+                if let resetNode { resetNode() } else { settings.textScale = 1 }
+            }
+            .keyboardShortcut("0")
+            Divider()
+        }
+    }
+}
+
+extension FocusedValues {
+    @Entry var resetFocusedNodeTextScale: (() -> Void)?
 }
 
 extension UTType {
