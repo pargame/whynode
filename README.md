@@ -1,6 +1,6 @@
 # WhyNode
 
-질문과 AI 답변이 짝을 이룬 노드로 지식 마인드맵을 넓혀 가는 macOS · iPadOS 앱입니다. 기획은 `CONCEPT.md`, 명세는 `SPEC.md`를 봅니다.
+질문과 AI 답변이 짝을 이룬 노드로 지식 마인드맵을 넓혀 가는 macOS · iPadOS 앱입니다. 기획은 `CONCEPT.md`, 명세는 `SPEC.md`, 현재 진행 상황과 다음 할 일은 `STATUS.md`를 봅니다.
 
 ## 구조
 
