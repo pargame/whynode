@@ -30,7 +30,7 @@ struct MapScreen: View {
         GeometryReader { geometry in
             let center = CGPoint(x: geometry.size.width / 2, y: geometry.size.height / 2)
             ZStack {
-                Color(white: 0.97)
+                Theme.canvas
                     .contentShape(Rectangle())
                     .gesture(panGesture)
                     .onTapGesture { focusedId = nil }
@@ -52,10 +52,12 @@ struct MapScreen: View {
                     .onTapGesture { tap(node) }
                     .gesture(moveGesture(for: node, center: center))
                     .contextMenu { menu(for: node) }
+                    .zIndex(focusedId == node.id ? 2 : expanded.contains(node.id) ? 1 : 0)
                 }
 
                 if let focusedId, let node = map[focusedId], node.status == .done, expanded.contains(focusedId) {
                     suggestionChips(for: node, center: center)
+                        .zIndex(3)
                 }
             }
             .gesture(zoomGesture)
@@ -107,7 +109,7 @@ struct MapScreen: View {
                 var path = Path()
                 path.move(to: screen(parent.position, center: center))
                 path.addLine(to: screen(node.position, center: center))
-                context.stroke(path, with: .color(.gray.opacity(isDimmed(node.id) ? 0.15 : 0.5)), lineWidth: 1.5)
+                context.stroke(path, with: .color(Theme.edge.opacity(isDimmed(node.id) ? 0.3 : 1)), lineWidth: 1.5)
             }
             for node in map.nodes {
                 for ref in node.refs {
@@ -115,7 +117,7 @@ struct MapScreen: View {
                     var path = Path()
                     path.move(to: screen(node.position, center: center))
                     path.addLine(to: screen(target.position, center: center))
-                    context.stroke(path, with: .color(.indigo.opacity(0.45)), style: StrokeStyle(lineWidth: 1.2, dash: [6, 5]))
+                    context.stroke(path, with: .color(Theme.refEdge), style: StrokeStyle(lineWidth: 1.4, dash: [6, 5]))
                 }
             }
         }
@@ -127,7 +129,8 @@ struct MapScreen: View {
     private func suggestionChips(for node: Node, center: CGPoint) -> some View {
         let unused = node.suggestions.filter { $0.usedBy == nil }
         let origin = screen(node.position, center: center)
-        let radius = 190 * effectiveScale + 40
+        // 펼친 노드 테두리 바깥에 칩이 놓이도록 반지름을 노드 크기에 맞춘다.
+        let radius = NodeBubble.expandedDiameter / 2 * effectiveScale + 56
         return ForEach(Array(unused.enumerated()), id: \.element.id) { index, suggestion in
             let angle = -Double.pi / 2 + (Double(index) - Double(unused.count - 1) / 2) * 0.75 + .pi
             Button {
@@ -135,15 +138,17 @@ struct MapScreen: View {
             } label: {
                 Text(suggestion.text)
                     .font(.callout)
+                    .foregroundStyle(.primary)
                     .lineLimit(2)
-                    .frame(maxWidth: 220)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 8)
-                    .background(.blue.opacity(0.1), in: Capsule())
-                    .overlay(Capsule().stroke(.blue.opacity(0.4)))
+                    .frame(maxWidth: 240)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 9)
+                    .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
+                    .overlay(Capsule().stroke(Color.accentColor.opacity(0.6)))
+                    .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
             }
             .buttonStyle(.plain)
-            .position(x: origin.x + cos(angle) * radius * 1.3, y: origin.y + sin(angle) * radius)
+            .position(x: origin.x + cos(angle) * radius * 1.25, y: origin.y + sin(angle) * radius)
             .transition(.scale.combined(with: .opacity))
         }
     }

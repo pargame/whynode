@@ -50,6 +50,14 @@ public struct ValidatedAnswer: Equatable, Sendable {
     /// 중복으로 걸러진 추가 질문. 부족할 때 `suggest` 재요청의 `exclude`로 쓴다.
     public var removed: [String]
 
+    public init(answer: String, summary: String, suggestions: [String], refs: [NodeRef], removed: [String]) {
+        self.answer = answer
+        self.summary = summary
+        self.suggestions = suggestions
+        self.refs = refs
+        self.removed = removed
+    }
+
     /// 남은 추가 질문이 2개 미만이면 `suggest`를 1회 자동 요청한다 (SPEC 6.4-4).
     public var needsMoreSuggestions: Bool { suggestions.count < ResponseValidator.minimumSuggestions }
 }

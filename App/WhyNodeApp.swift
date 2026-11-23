@@ -5,6 +5,12 @@ import UniformTypeIdentifiers
 struct WhyNodeApp: App {
     @State private var settings = SettingsStore()
 
+    init() {
+        #if os(macOS) && DEBUG
+        SnapshotRenderer.runIfRequested()
+        #endif
+    }
+
     var body: some Scene {
         #if os(macOS)
         // 앱을 켜면 파일 선택 창 대신 WhyNode 시작 화면을 띄운다.

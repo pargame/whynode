@@ -1,5 +1,17 @@
-#if os(macOS)
 import Foundation
+
+/// 모델 선택지 (ID와 화면 표시명)
+public struct ModelOption: Hashable, Sendable, Identifiable {
+    public var id: String
+    public var name: String
+
+    public init(id: String, name: String) {
+        self.id = id
+        self.name = name
+    }
+}
+
+#if os(macOS)
 
 /// ③ 공식 CLI 연동. 사용자의 로컬 CLI를 자식 프로세스로 실행하며 인증 정보는 다루지 않는다 (SPEC 5.1).
 public struct CLIProvider: AIProvider {
@@ -32,12 +44,14 @@ public struct CLIProvider: AIProvider {
         let schema = Prompt.schema(for: context.kind)
         let message = Prompt.userMessage(for: context)
         let modelArgs = model.isEmpty ? [] : ["--model", model]
+        // 질의응답에 필요 없는 도구 · 스킬 · 설정 로드를 꺼서 호출당 토큰과 지연을 줄인다.
         switch kind {
         case .anthropic:
-            return ["-p", "--output-format", "json", "--json-schema", schema, "--system-prompt", Prompt.system] + modelArgs + [message]
+            let lean = ["--tools", "", "--strict-mcp-config", "--setting-sources", "", "--disable-slash-commands", "--no-session-persistence"]
+            return ["-p", "--output-format", "json", "--json-schema", schema, "--system-prompt", Prompt.system] + lean + modelArgs + [message]
         case .google:
             // agy는 시스템 프롬프트 옵션이 없어 본문 앞에 붙인다.
-            return ["--mode", "plan", "--output-format", "json", "--json-schema", schema] + modelArgs + ["-p=\(Prompt.system)\n\n\(message)"]
+            return ["--disable-slash-commands", "--output-format", "json", "--json-schema", schema] + modelArgs + ["-p=\(Prompt.system)\n\n\(message)"]
         case .openai:
             throw ProviderError.notSupported(kind.cliDisplayName)
         }
@@ -80,6 +94,32 @@ public struct CLIProvider: AIProvider {
             }
             defer { group.cancelAll() }
             return try await group.next()!
+        }
+    }
+
+    /// CLI가 고를 수 있는 모델. agy는 `agy models` 목록을, claude는 공식 별칭을 쓴다.
+    public static func models(kind: ProviderKind, executable: URL) async throws -> [ModelOption] {
+        switch kind {
+        case .anthropic:
+            return [
+                ModelOption(id: "haiku", name: "Haiku (가장 빠르고 저렴)"),
+                ModelOption(id: "sonnet", name: "Sonnet (균형)"),
+                ModelOption(id: "opus", name: "Opus (가장 정교)"),
+            ]
+        case .google:
+            let output = try await CLIProcess.run(executable, arguments: ["models"])
+            return parseModelList(String(decoding: output, as: UTF8.self))
+        case .openai:
+            throw ProviderError.notSupported(kind.cliDisplayName)
+        }
+    }
+
+    /// `id<TAB>표시명` 줄 목록을 읽는다. 안내 문구처럼 탭이 없는 줄은 건너뛴다.
+    static func parseModelList(_ text: String) -> [ModelOption] {
+        text.split(whereSeparator: \.isNewline).compactMap { line in
+            let parts = line.split(separator: "\t", maxSplits: 1).map { $0.trimmingCharacters(in: .whitespaces) }
+            guard parts.count == 2, !parts[0].isEmpty, !parts[0].contains(" ") else { return nil }
+            return ModelOption(id: parts[0], name: parts[1])
         }
     }
 

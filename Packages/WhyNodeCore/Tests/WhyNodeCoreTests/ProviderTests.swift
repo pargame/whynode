@@ -40,6 +40,30 @@ struct ProviderParsingTests {
         }
     }
 
+    @Test func agy_모델_목록을_읽는다() {
+        let text = "Fetching available models...\ngemini-4-neon-medium\tGemini 4 Neon (Medium)\nclaude-opus-5-5-low\tClaude Opus 5.5 (Low)\n"
+        let models = CLIProvider.parseModelList(text)
+        #expect(models.map(\.id) == ["gemini-4-neon-medium", "claude-opus-5-5-low"])
+        #expect(models.first?.name == "Gemini 4 Neon (Medium)")
+    }
+
+    @Test func claude_인자는_도구와_설정_로드를_끈다() throws {
+        let provider = CLIProvider(kind: .anthropic, executable: URL(fileURLWithPath: "/usr/bin/true"), model: "haiku")
+        let args = try provider.arguments(for: ConnectionTest.context)
+        #expect(args.contains("--tools"))
+        #expect(args.contains("--setting-sources"))
+        #expect(args.contains("--no-session-persistence"))
+        #expect(!args.contains("--effort"))
+        #expect(args.contains("haiku"))
+    }
+
+    @Test func agy_인자는_스킬_확장을_끄고_plan_모드를_쓰지_않는다() throws {
+        let provider = CLIProvider(kind: .google, executable: URL(fileURLWithPath: "/usr/bin/true"))
+        let args = try provider.arguments(for: ConnectionTest.context)
+        #expect(args.contains("--disable-slash-commands"))
+        #expect(!args.contains("--mode"))
+    }
+
     /// 실제 CLI 호출. `WHYNODE_LIVE_CLI=agy` 또는 `claude`로 켤 때만 실행한다.
     @Test(.enabled(if: ProcessInfo.processInfo.environment["WHYNODE_LIVE_CLI"] != nil))
     func 실제_CLI_연결_테스트() async throws {

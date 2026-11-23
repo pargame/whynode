@@ -22,6 +22,8 @@ struct AISetupView: View {
     @State private var testState: TestState = .idle
     @State private var loadingModels = false
     @State private var modelError: String?
+    @State private var cliModels: [CLIModel] = []
+    @State private var customModel = false
 
     enum TestState: Equatable {
         case idle, running, passed([String]), failed(String)
@@ -96,6 +98,13 @@ struct AISetupView: View {
         .onChange(of: connection) { resetForChange(); checkCLI() }
         .onChange(of: model) { testState = .idle }
         .onChange(of: apiKey) { testState = .idle }
+        .task(id: apiKey) {
+            // 입력이 멈추면 모델 목록을 자동으로 불러온다.
+            guard connection == .apiKey, !apiKey.isEmpty else { return }
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            loadModels()
+        }
     }
 
     // 연결 방식별 입력
@@ -109,7 +118,18 @@ struct AISetupView: View {
             HStack { ProgressView().controlSize(.small); Text("\(provider.cliTool) 찾는 중…") }
         } else if let cliPath {
             LabeledContent("CLI", value: cliPath)
-            TextField("모델 (비우면 CLI 기본 모델)", text: $model)
+            Picker("모델", selection: cliModelSelection) {
+                Text("CLI 기본 모델").tag("")
+                ForEach(cliModels) { Text($0.name).tag($0.id) }
+                Text("직접 입력…").tag(Self.customTag)
+            }
+            if customModel {
+                TextField("모델 ID", text: $model)
+            }
+            if provider == .anthropic {
+                Text("빠른 응답과 적은 사용량을 원하면 Haiku를 권장합니다.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             Text("이 Mac에서 \(provider.cliTool)에 로그인되어 있으면 그 계정의 구독 요금제를 그대로 씁니다. WhyNode는 로그인 정보를 다루지 않습니다.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -176,6 +196,36 @@ struct AISetupView: View {
         }
     }
 
+    typealias CLIModel = ModelOption
+    private static let customTag = "__custom__"
+
+    /// 목록에 없는 모델이 저장돼 있으면 직접 입력 상태로 보여준다.
+    private var cliModelSelection: Binding<String> {
+        Binding(
+            get: { customModel ? Self.customTag : model },
+            set: { value in
+                if value == Self.customTag {
+                    customModel = true
+                } else {
+                    customModel = false
+                    model = value
+                }
+            }
+        )
+    }
+
+    private func loadCLIModels(executable: URL) {
+        #if os(macOS)
+        let kind = provider
+        Task {
+            let list = (try? await CLIProvider.models(kind: kind, executable: executable)) ?? []
+            guard kind == provider else { return }
+            cliModels = list
+            customModel = !model.isEmpty && !list.contains { $0.id == model }
+        }
+        #endif
+    }
+
     private func loadCurrent() {
         if let current = settings.ai {
             provider = current.provider
@@ -189,6 +239,8 @@ struct AISetupView: View {
     private func resetForChange() {
         testState = .idle
         models = []
+        cliModels = []
+        customModel = false
         modelError = nil
         if settings.ai?.provider == provider, settings.ai?.connection == connection {
             model = settings.ai?.model ?? ""
@@ -208,6 +260,7 @@ struct AISetupView: View {
             guard tool == provider.cliTool else { return }
             cliPath = found?.path
             cliChecked = true
+            if let found { loadCLIModels(executable: found) }
         }
         #endif
     }
