@@ -62,8 +62,8 @@ struct PhysicsControl: View {
 
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            row("반발력", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.5)
-            row("장력", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.05)
+            row("반발력", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.1)
+            row("장력", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.1)
             row("링크 거리", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 2)
             row("중심력", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
             Text("루트는 고정됩니다. 링크 거리는 두 원 가장자리 사이의 선 길이입니다.")

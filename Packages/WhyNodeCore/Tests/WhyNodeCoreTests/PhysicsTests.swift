@@ -110,6 +110,6 @@ struct PhysicsTests {
 
     @Test func 범위를_벗어난_조절값은_맞춘다() {
         let wild = PhysicsSettings(repel: -5, tension: 3, linkDistance: .nan, gravity: 0.5).clamped
-        #expect(wild == PhysicsSettings(repel: 0, tension: 2, linkDistance: 0, gravity: 0.5))
+        #expect(wild == PhysicsSettings(repel: 0, tension: 3, linkDistance: 0, gravity: 0.5))
     }
 }
