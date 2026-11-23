@@ -9,6 +9,7 @@ final class SettingsStore {
     private static let physicsKey = "physics.settings"
     private static let textScaleKey = "text.scale"
     private static let preSaveKey = "project.presave"
+    private static let projectFolderKey = "project.folder"
 
     private(set) var ai: AISettings?
 
@@ -36,6 +37,17 @@ final class SettingsStore {
         didSet { UserDefaults.standard.set(preSavesNewProjects, forKey: Self.preSaveKey) }
     }
 
+    /// 선저장 폴더를 사용자가 고른 경우의 경로. nil이면 기본 폴더(~/Documents/WhyNode).
+    var customProjectFolder: String? {
+        didSet { UserDefaults.standard.set(customProjectFolder, forKey: Self.projectFolderKey) }
+    }
+
+    #if os(macOS)
+    var projectFolder: URL {
+        customProjectFolder.map { URL(fileURLWithPath: $0, isDirectory: true) } ?? ProjectFiles.defaultFolder
+    }
+    #endif
+
     var isConfigured: Bool { ai != nil }
 
     init() {
@@ -46,6 +58,7 @@ final class SettingsStore {
            let saved = try? JSONDecoder().decode(PhysicsSettings.self, from: data) {
             physics = saved.clamped
         }
+        customProjectFolder = UserDefaults.standard.string(forKey: Self.projectFolderKey)
         if UserDefaults.standard.object(forKey: Self.preSaveKey) != nil {
             preSavesNewProjects = UserDefaults.standard.bool(forKey: Self.preSaveKey)
         }

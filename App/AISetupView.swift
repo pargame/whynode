@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import WhyNodeCore
 
 /// AI 회사 · 연결 방식 선택과 연결 테스트 (SPEC 5.4). 첫 실행 안내와 설정 화면이 같은 화면을 쓴다.
@@ -11,6 +12,8 @@ struct AISetupView: View {
     var onFinish: () -> Void = {}
 
     @Environment(SettingsStore.self) private var settings
+    @Environment(\.dismiss) private var dismiss
+    @State private var choosingFolder = false
 
     @State private var provider: ProviderKind = .google
     @State private var connection: Connection = Self.defaultConnection
@@ -79,15 +82,33 @@ struct AISetupView: View {
                 Form {
                     Section("프로젝트") {
                         Toggle("새 프로젝트를 만들자마자 저장", isOn: $settings.preSavesNewProjects)
+                        LabeledContent("저장 위치") {
+                            HStack {
+                                Text(settings.projectFolder.path(percentEncoded: false))
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                    .foregroundStyle(.secondary)
+                                Button("변경…") { choosingFolder = true }
+                                if settings.customProjectFolder != nil {
+                                    Button("기본 위치") { settings.customProjectFolder = nil }
+                                }
+                            }
+                        }
+                        .disabled(!settings.preSavesNewProjects)
                         Text(settings.preSavesNewProjects
-                             ? "새 프로젝트는 \(ProjectFiles.folder.path(percentEncoded: false))에 바로 저장되고, 이후 자동 저장됩니다. 이름은 창 제목을 눌러 바꿀 수 있습니다."
+                             ? "새 프로젝트는 저장 위치에 바로 저장되고, 이후 자동 저장됩니다. 이름은 창 제목을 눌러 바꿀 수 있습니다."
                              : "새 프로젝트는 이름 없이 열리고, 처음 저장할 때 위치를 고릅니다. 저장하지 않고 끄면 저장 · 삭제를 묻습니다.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .formStyle(.grouped)
-                .frame(height: 110)
+                .frame(height: 160)
+                .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+                    if case .success(let url) = result {
+                        settings.customProjectFolder = url.path(percentEncoded: false)
+                    }
+                }
             }
             #endif
 
@@ -100,6 +121,13 @@ struct AISetupView: View {
                 Spacer()
                 if mode == .onboarding {
                     Button("나중에") { onFinish() }
+                } else {
+                    // 시트로 열렸을 때 닫을 방법이 Esc뿐이라 버튼을 둔다. 바뀐 AI 설정은 저장하지 않는다.
+                    Button("닫기") {
+                        onFinish()
+                        dismiss()
+                    }
+                    .keyboardShortcut(.cancelAction)
                 }
                 Button("연결 테스트") { runTest() }
                     .disabled(!canTest || testState == .running)

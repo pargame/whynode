@@ -5,14 +5,14 @@ import WhyNodeCore
 
 /// 새 프로젝트를 만들자마자 파일로 저장한다(선저장). 이름 없는 문서로 두지 않아, 앱을 끌 때 저장 · 삭제를 묻지 않는다.
 enum ProjectFiles {
-    /// 새 프로젝트가 저장되는 폴더: ~/Documents/WhyNode
-    static var folder: URL {
+    /// 기본 저장 폴더: ~/Documents/WhyNode. 설정에서 바꿀 수 있다(`SettingsStore.projectFolder`).
+    static var defaultFolder: URL {
         FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("WhyNode", isDirectory: true)
     }
 
-    /// `map`을 `name.whynode`로 저장하고 경로를 돌려준다. 같은 이름이 있으면 `name 2`, `name 3`…으로 피한다.
-    static func create(_ map: MindMap, name: String) throws -> URL {
+    /// `map`을 `folder/name.whynode`로 저장하고 경로를 돌려준다. 같은 이름이 있으면 `name 2`, `name 3`…으로 피한다.
+    static func create(_ map: MindMap, name: String, in folder: URL) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         let base = sanitized(name)
         var url = folder.appendingPathComponent(base).appendingPathExtension("whynode")
@@ -47,7 +47,7 @@ struct ProjectCreator {
             newDocument { WhyNodeDocument(map: map) }
             return
         }
-        let url = try ProjectFiles.create(map, name: name)
+        let url = try ProjectFiles.create(map, name: name, in: settings.projectFolder)
         try await openDocument(at: url)
     }
 }
