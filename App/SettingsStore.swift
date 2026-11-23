@@ -8,6 +8,7 @@ final class SettingsStore {
     private static let settingsKey = "ai.settings"
     private static let physicsKey = "physics.settings"
     private static let textScaleKey = "text.scale"
+    private static let preSaveKey = "project.presave"
 
     private(set) var ai: AISettings?
 
@@ -30,6 +31,11 @@ final class SettingsStore {
         textScale = min(max(next, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound)
     }
 
+    /// 새 프로젝트를 만들자마자 ~/Documents/WhyNode에 파일로 저장할지(선저장). 기본은 켜짐.
+    var preSavesNewProjects: Bool = true {
+        didSet { UserDefaults.standard.set(preSavesNewProjects, forKey: Self.preSaveKey) }
+    }
+
     var isConfigured: Bool { ai != nil }
 
     init() {
@@ -39,6 +45,9 @@ final class SettingsStore {
         if let data = UserDefaults.standard.data(forKey: Self.physicsKey),
            let saved = try? JSONDecoder().decode(PhysicsSettings.self, from: data) {
             physics = saved.clamped
+        }
+        if UserDefaults.standard.object(forKey: Self.preSaveKey) != nil {
+            preSavesNewProjects = UserDefaults.standard.bool(forKey: Self.preSaveKey)
         }
         let savedScale = UserDefaults.standard.double(forKey: Self.textScaleKey)
         if Self.textScaleRange.contains(savedScale) { textScale = savedScale }

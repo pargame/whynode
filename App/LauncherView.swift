@@ -34,8 +34,7 @@ struct LauncherView: View {
                 .padding(.bottom, 12)
 
                 action("새 프로젝트", systemImage: "plus.circle.fill", prominent: true) {
-                    newDocument { WhyNodeDocument() }
-                    dismissWindow(id: LauncherView.windowId)
+                    create(.new(), name: "새 프로젝트")
                 }
                 action("프로젝트 열기…", systemImage: "folder") { importing = .open }
                 action("v1 파일 가져오기…", systemImage: "square.and.arrow.down") { importing = .v1 }
@@ -119,6 +118,18 @@ struct LauncherView: View {
         Binding(get: { importing != nil }, set: { if !$0 { importing = nil } })
     }
 
+    /// 설정이 켜져 있으면 파일을 먼저 만들어 연다(선저장).
+    private func create(_ map: MindMap, name: String) {
+        Task {
+            do {
+                try await ProjectCreator(settings: settings, newDocument: newDocument, openDocument: openDocument).create(map, name: name)
+                dismissWindow(id: LauncherView.windowId)
+            } catch {
+                errorMessage = error.localizedDescription
+            }
+        }
+    }
+
     private func loadRecent() {
         #if os(macOS)
         recent = NSDocumentController.shared.recentDocumentURLs.filter { $0.pathExtension == "whynode" }
@@ -149,8 +160,7 @@ struct LauncherView: View {
                 let accessing = url.startAccessingSecurityScopedResource()
                 defer { if accessing { url.stopAccessingSecurityScopedResource() } }
                 let (map, _) = try V1Import.convert(Data(contentsOf: url))
-                newDocument { WhyNodeDocument(map: map) }
-                dismissWindow(id: LauncherView.windowId)
+                create(map, name: map.root.question)
             case nil:
                 break
             }

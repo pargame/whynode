@@ -31,7 +31,10 @@ struct WhyNodeApp: App {
             let visible = context.defaultDisplay.visibleRect
             return WindowPlacement(visible.origin, size: visible.size)
         }
-        .commands { TextSizeCommands(settings: settings) }
+        .commands {
+            NewProjectCommands(settings: settings)
+            TextSizeCommands(settings: settings)
+        }
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {
