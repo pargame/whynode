@@ -236,7 +236,10 @@ struct MapScreen: View {
             }
         }
         // 포커스를 부모에 그대로 두어 남은 추가 질문을 이어서 고를 수 있게 한다.
-        if let created { start(created, focus: false) }
+        if let created {
+            start(created, focus: false)
+            arrange(around: created)
+        }
     }
 
     private func start(_ id: WID, focus: Bool = true) {
@@ -310,7 +313,10 @@ struct MapScreen: View {
                     created = $0.addCustomChild(of: parent, question: text)
                 }
             }
-            if let created { start(created, focus: false) }
+            if let created {
+                start(created, focus: false)
+                arrange(around: created)
+            }
         case .edit(let id):
             document.perform("질문 수정", undoManager: undoManager) { $0.editQuestion(id, to: text) }
             if map[id]?.status == .pending { start(id) }
@@ -370,6 +376,8 @@ struct MapScreen: View {
     private func moveGesture(for node: Node) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
+                // 자동 정리 중에 노드를 잡으면 정리를 먼저 끝내고 평소처럼 옮긴다(놓으면 고정 · 실행 취소 1회).
+                if canvas.isSimulating, !canvas.isRunning { finishPhysics() }
                 withoutAnimation { canvas.dragging = (node.id, value.translation) }
                 // 시뮬레이션 중에는 잡은 노드를 손가락 위치에 고정하고, 이어진 노드가 딸려 오게 한다.
                 guard canvas.simulation != nil else { return }
@@ -414,12 +422,42 @@ struct MapScreen: View {
         if canvas.isRunning { finishPhysics() } else { startPhysics() }
     }
 
-    /// 포커스를 먼저 풀어 모든 노드를 원으로 접은 뒤 시작한다.
+    /// 포커스를 먼저 풀어 모든 노드를 원으로 접은 뒤 시작한다. 자동 정리가 돌던 중이면 그 결과를 먼저 반영한다.
     private func startPhysics() {
         guard map.nodes.count > 1 else { return }
+        if canvas.isSimulating { finishPhysics() }
         focusedId = nil
-        canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics))
+        canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics), manual: true)
         ticker.start { stepPhysics() }
+    }
+
+    /// 새 노드가 기존 노드와 겹치지 않도록 그 주변만 안정될 때까지 시뮬레이션한다 (SPEC 8.4 부분 계산).
+    /// 새 노드 · 형제 · 형제의 자식만 움직이고, 부모 · 루트 · 사용자가 옮긴 노드와 나머지는 고정된 장애물이다.
+    private func arrange(around id: WID) {
+        // 버튼 시뮬레이션 중이면 새 노드도 그 계산에 그대로 합류한다.
+        guard !canvas.isRunning else { return }
+        var area = arrangeArea(around: id)
+        if let current = canvas.simulation?.movable {
+            // 자동 정리 중에 또 만들면 범위를 넓혀 이어서 돌린다. 새 노드는 다음 동기화 때 합류한다.
+            area.formUnion(current)
+            canvas.simulation?.setMovable(area)
+            canvas.simulation?.reheat(to: 0.6)
+            return
+        }
+        canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics, movable: area, alpha: 0.6), manual: false)
+        ticker.start { stepPhysics() }
+    }
+
+    private func arrangeArea(around id: WID) -> Set<WID> {
+        guard let pid = map[id]?.parentId else { return [id] }
+        var area: Set<WID> = [id]
+        for sibling in map.childIDs(of: pid) {
+            area.insert(sibling)
+            area.formUnion(map.childIDs(of: sibling))
+        }
+        area.remove(pid)
+        area.remove(map.rootId)
+        return area.filter { $0 == id || map[$0]?.position.pinned != true }
     }
 
     private func stepPhysics() {
@@ -430,19 +468,25 @@ struct MapScreen: View {
         if !still, canvas.holdOrigin == nil { finishPhysics() }
     }
 
-    /// 멈춘 자리를 실행 취소 1회로 문서에 반영한다.
+    /// 버튼 시뮬레이션은 멈춘 자리를 실행 취소 1회로, 자동 정리는 실행 취소 없이 문서에 반영한다.
     private func finishPhysics() {
         ticker.stop()
         guard canvas.simulation != nil else { return }
+        let manual = canvas.isRunning
         withoutAnimation {
             guard let positions = canvas.stopSimulation() else { return }
-            document.perform("시뮬레이션", undoManager: undoManager) { $0.arrange(positions) }
+            if manual {
+                document.perform("시뮬레이션", undoManager: undoManager) { $0.arrange(positions) }
+            } else {
+                // 자동 배치는 사용자가 고정한 노드를 건드리지 않는다.
+                document.applyWithoutUndo { $0.applyLayout(positions) }
+            }
         }
     }
 
     /// 조절값을 바꾸면 결과가 바로 보이도록, 도는 중이면 다시 데우고 멈춰 있으면 시작한다.
     private func physicsChanged() {
-        if canvas.simulation == nil {
+        if !canvas.isRunning {
             startPhysics()
         } else {
             canvas.simulation?.settings = settings.physics.clamped

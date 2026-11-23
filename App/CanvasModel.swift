@@ -22,8 +22,10 @@ final class CanvasModel {
     var textPinch: (id: WID, factor: CGFloat)?
     /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
     var holdOrigin: CGPoint?
-    /// 도는 중인지는 `simulation`과 따로 둔다. 계산 프로퍼티로 두면 이 값을 읽는 화면이 매 틱 다시 계산된다.
+    /// 버튼으로 켠 시뮬레이션이 도는 중인지. `simulation`과 따로 둔다. 계산 프로퍼티로 두면 이 값을 읽는 화면이 매 틱 다시 계산된다.
     private(set) var isRunning = false
+    /// 버튼 시뮬레이션이든 새 노드 주변 자동 정리든 시뮬레이션이 도는 중인지
+    private(set) var isSimulating = false
 
     static let minScale: CGFloat = 0.2
     static let maxScale: CGFloat = 3
@@ -74,9 +76,11 @@ final class CanvasModel {
         return CGPoint(x: center.x + offset.width + world.x * scale, y: center.y + offset.height + world.y * scale)
     }
 
-    func startSimulation(_ simulation: ForceSimulation) {
+    /// `manual`은 버튼으로 켠 시뮬레이션, 아니면 새 노드 주변 자동 정리다.
+    func startSimulation(_ simulation: ForceSimulation, manual: Bool) {
         self.simulation = simulation
-        isRunning = true
+        isRunning = manual
+        isSimulating = true
     }
 
     /// 멈춘 시뮬레이션의 위치를 돌려주고 상태를 비운다.
@@ -85,6 +89,7 @@ final class CanvasModel {
         simulation = nil
         holdOrigin = nil
         isRunning = false
+        isSimulating = false
         return positions
     }
 }
@@ -124,8 +129,8 @@ struct EdgeLayer: View {
 
     var body: some View {
         let items = edgeItems
-        if canvas.isRunning {
-            // 시뮬레이션 중에는 애니메이션이 꺼져 있어 보간이 필요 없다.
+        if canvas.isSimulating {
+            // 시뮬레이션 중에는 위치가 애니메이션 없이 바뀌므로 보간이 필요 없다.
             Canvas { context, _ in
                 for item in items {
                     var path = Path()

@@ -36,6 +36,12 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
         FileWrapper(regularFileWithContents: try WhyNodeCodec.encode(snapshot))
     }
 
+    /// 실행 취소에 쌓지 않는 변경. 새 노드 주변 자동 배치 좌표에만 쓴다 (SPEC 7.6).
+    /// 문서 변경 표시를 따로 하지 않으므로, 이어지는 답변 반영 등 다음 변경이 등록될 때 함께 저장된다.
+    func applyWithoutUndo(_ change: (inout MindMap) -> Void) {
+        change(&map)
+    }
+
     /// 변경을 적용하고 실행 취소를 등록한다. 등록이 곧 문서 변경 표시가 되어 자동 저장이 일어난다.
     func perform(_ actionName: String, undoManager: UndoManager?, _ change: (inout MindMap) -> Void) {
         let before = map

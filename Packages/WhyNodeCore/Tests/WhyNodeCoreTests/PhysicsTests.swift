@@ -112,4 +112,25 @@ struct PhysicsTests {
         let wild = PhysicsSettings(repel: -5, tension: 3, linkDistance: .nan, gravity: 0.5).clamped
         #expect(wild == PhysicsSettings(repel: 0, tension: 3, linkDistance: 0, gravity: 0.5))
     }
+
+    @Test func 부분_계산은_범위_밖_노드를_고정하고_겹친_새_노드를_떼어_놓는다() throws {
+        var map = MindMap.new()
+        map.setRootQuestion("주제")
+        let a = map.addCustomChild(of: map.rootId, question: "A")!
+        let far = map.addCustomChild(of: map.rootId, question: "먼 노드")!
+        map.move(a, to: (0, 240), pinned: false)
+        map.move(far, to: (600, 0), pinned: false)
+        // 새 노드를 A와 같은 자리에 겹쳐 놓는다.
+        let b = map.addCustomChild(of: a, question: "B")!
+        map.move(b, to: (0, 240), pinned: false)
+
+        var sim = ForceSimulation(map: map, settings: .default, movable: [b], alpha: 0.6)
+        while sim.tick() {}
+        let pa = try #require(sim.position(of: a))
+        let pb = try #require(sim.position(of: b))
+        let pf = try #require(sim.position(of: far))
+        #expect(pa.x == 0 && pa.y == 240)
+        #expect(pf.x == 600 && pf.y == 0)
+        #expect(distance(pa, pb) >= 2 * ForceSimulation.nodeRadius)
+    }
 }

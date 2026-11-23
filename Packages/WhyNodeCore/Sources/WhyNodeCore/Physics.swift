@@ -63,11 +63,28 @@ public struct ForceSimulation: Sendable {
     private var fixed: [SIMD2<Double>?] = []
     private var links: [(source: Int, target: Int, bias: Double)] = []
     private let rootId: WID
+    /// 움직일 수 있는 노드. nil이면 루트를 뺀 전부이고, 값이 있으면 나머지는 제자리에 고정된 장애물이 된다 (SPEC 8.4 부분 계산).
+    public private(set) var movable: Set<WID>?
 
-    public init(map: MindMap, settings: PhysicsSettings) {
+    /// `alpha`는 시작 온도. 새 노드 주변만 정리하는 부분 계산은 낮게 시작해 짧게 끝낸다.
+    public init(map: MindMap, settings: PhysicsSettings, movable: Set<WID>? = nil, alpha: Double = 1) {
         self.settings = settings.clamped
         rootId = map.rootId
+        self.movable = movable
+        self.alpha = alpha
         sync(with: map)
+    }
+
+    private func isAnchored(_ id: WID) -> Bool {
+        id == rootId || (movable.map { !$0.contains(id) } ?? false)
+    }
+
+    /// 움직일 수 있는 노드를 바꾼다. 범위 밖이 된 노드는 지금 자리에 고정하고, 범위 안이 된 노드는 풀어 준다.
+    public mutating func setMovable(_ ids: Set<WID>?) {
+        movable = ids
+        for (i, id) in self.ids.enumerated() {
+            fixed[i] = isAnchored(id) ? position[i] : nil
+        }
     }
 
     public var isSettled: Bool { alpha < Self.alphaMin || ticks >= Self.maxTicks }
@@ -99,7 +116,7 @@ public struct ForceSimulation: Sendable {
                 let p = SIMD2(node.position.x, node.position.y)
                 newPosition.append(p)
                 newVelocity.append(.zero)
-                newFixed.append(node.id == rootId ? p : nil)
+                newFixed.append(isAnchored(node.id) ? p : nil)
             }
         }
         ids = newIds
@@ -137,7 +154,7 @@ public struct ForceSimulation: Sendable {
 
     public mutating func release(_ id: WID) {
         guard let i = index[id], id != rootId else { return }
-        fixed[i] = nil
+        fixed[i] = isAnchored(id) ? position[i] : nil
     }
 
     /// 한 틱 진행한다. 안정되면 false를 돌려준다.
