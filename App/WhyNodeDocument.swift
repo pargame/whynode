@@ -3,7 +3,8 @@ import UniformTypeIdentifiers
 import WhyNodeCore
 
 /// `.whynode` 문서. 디스크 쓰기는 DocumentGroup 자동 저장에 맡기고, 앱은 UndoManager로 변경만 등록한다 (SPEC 7.6).
-final class WhyNodeDocument: ReferenceFileDocument {
+/// `map`은 화면(메인 스레드)에서만 바뀌고, 백그라운드 저장은 `snapshot`이 넘긴 값 복사본만 읽으므로 Sendable을 직접 보증한다.
+final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
     typealias Snapshot = WhyNodeFile
 
     nonisolated static var readableContentTypes: [UTType] { [.whynode] }
