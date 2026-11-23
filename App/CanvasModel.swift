@@ -16,6 +16,8 @@ final class CanvasModel {
     var dragging: (id: WID, translation: CGSize)?
     /// 시뮬레이션이 도는 동안의 시뮬레이션. 멈추면 결과를 문서에 한 번 반영하고 nil이 된다 (SPEC 2.6).
     var simulation: ForceSimulation?
+    /// 펼친 노드 안에서 핀치 중인 노드와 배율. 손을 떼면 노드의 글자 크기로 확정된다.
+    var textPinch: (id: WID, factor: CGFloat)?
     /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
     var holdOrigin: CGPoint?
     /// 도는 중인지는 `simulation`과 따로 둔다. 계산 프로퍼티로 두면 이 값을 읽는 화면이 매 틱 다시 계산된다.
@@ -47,6 +49,12 @@ final class CanvasModel {
     var isMoving: Bool { isRunning || dragging != nil }
 
     /// 시뮬레이션 중에는 시뮬레이션 위치를, 끌고 있는 노드는 손가락 이동량만큼 더해 그린다.
+    /// 핀치 중인 값까지 반영한 노드 글자 크기 배율
+    func textScale(of node: Node) -> Double {
+        guard let textPinch, textPinch.id == node.id else { return node.textScale }
+        return Node.clampedTextScale(node.textScale * textPinch.factor)
+    }
+
     func worldPoint(of node: Node) -> CGPoint {
         if let p = simulation?.position(of: node.id) { return CGPoint(x: p.x, y: p.y) }
         var point = CGPoint(x: node.position.x, y: node.position.y)

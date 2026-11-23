@@ -115,6 +115,8 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
     public var refs: [NodeRef]
     public var position: Position
     public var collapsed: Bool
+    /// 이 노드의 글자 크기 배율 (SPEC 7.4). 노드 크기는 그대로이고 글자만 바뀐다. 앱 전체 글자 크기 설정과 곱해 쓴다.
+    public var textScale: Double
     public var generation: Generation?
     public var createdAt: Date
     public var updatedAt: Date
@@ -131,6 +133,7 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         refs: [NodeRef] = [],
         position: Position = Position(),
         collapsed: Bool = false,
+        textScale: Double = 1,
         generation: Generation? = nil,
         createdAt: Date,
         updatedAt: Date
@@ -146,6 +149,7 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         self.refs = refs
         self.position = position
         self.collapsed = collapsed
+        self.textScale = textScale
         self.generation = generation
         self.createdAt = createdAt
         self.updatedAt = updatedAt
@@ -165,9 +169,20 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         try c.encode(refs, forKey: .refs)
         try c.encode(position, forKey: .position)
         try c.encode(collapsed, forKey: .collapsed)
+        try c.encode(textScale, forKey: .textScale)
         try c.encode(generation, forKey: .generation)
         try c.encode(createdAt, forKey: .createdAt)
         try c.encode(updatedAt, forKey: .updatedAt)
+    }
+}
+
+extension Node {
+    public static let textScaleRange: ClosedRange<Double> = 0.6...2.5
+
+    /// 범위를 벗어나거나 수가 아닌 값을 허용 범위로 맞추고, 소수 둘째 자리로 자른다.
+    public static func clampedTextScale(_ value: Double) -> Double {
+        guard value.isFinite else { return 1 }
+        return (min(max(value, textScaleRange.lowerBound), textScaleRange.upperBound) * 100).rounded() / 100
     }
 }
 
@@ -185,7 +200,7 @@ public struct ProjectMeta: Codable, Equatable, Sendable {
 
 /// `.whynode` 파일의 최상위 구조 (SPEC 7.3)
 public struct WhyNodeFile: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 2
+    public static let currentSchemaVersion = 3
 
     public var schemaVersion: Int
     public var project: ProjectMeta

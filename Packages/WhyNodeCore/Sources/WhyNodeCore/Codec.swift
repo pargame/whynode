@@ -90,8 +90,25 @@ public enum WhyNodeCodec {
         guard version <= WhyNodeFile.currentSchemaVersion else {
             throw CodecError.unsupportedSchemaVersion(version)
         }
-        try SchemaGuard.check(object)
-        return try decoder().decode(WhyNodeFile.self, from: data)
+        let migrated = migrate(object, from: version)
+        try SchemaGuard.check(migrated)
+        let current = version == WhyNodeFile.currentSchemaVersion ? data : try JSONSerialization.data(withJSONObject: migrated)
+        return try decoder().decode(WhyNodeFile.self, from: current)
+    }
+
+    /// 이전 스키마 버전에 없던 필드를 기본값으로 채운다 (SPEC 7.8). 이후 검사 · 디코딩은 현재 버전 기준이다.
+    static func migrate(_ object: [String: Any], from version: Int) -> [String: Any] {
+        guard version < WhyNodeFile.currentSchemaVersion else { return object }
+        var result = object
+        if version < 3, let nodes = object["nodes"] as? [Any] {
+            result["nodes"] = nodes.map { value -> Any in
+                guard var node = value as? [String: Any] else { return value }
+                if node["textScale"] == nil { node["textScale"] = 1 }
+                return node
+            }
+        }
+        result["schemaVersion"] = WhyNodeFile.currentSchemaVersion
+        return result
     }
 
     static func decoder() -> JSONDecoder {
@@ -114,7 +131,7 @@ enum SchemaGuard {
     static let project: Set<String> = ["id", "createdAt", "updatedAt"]
     static let node: Set<String> = [
         "id", "parentId", "question", "answer", "summary", "status", "error",
-        "suggestions", "refs", "position", "collapsed", "generation", "createdAt", "updatedAt",
+        "suggestions", "refs", "position", "collapsed", "textScale", "generation", "createdAt", "updatedAt",
     ]
     static let suggestion: Set<String> = ["id", "text", "usedBy"]
     static let ref: Set<String> = ["nodeId", "reason"]

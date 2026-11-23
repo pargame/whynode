@@ -45,9 +45,25 @@ struct CodecTests {
 
     @Test func 상위_스키마_버전은_열지_않는다() throws {
         var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
-        object["schemaVersion"] = 3
+        object["schemaVersion"] = 4
         let data = try JSONSerialization.data(withJSONObject: object)
-        #expect(throws: CodecError.unsupportedSchemaVersion(3)) { try WhyNodeCodec.decode(data) }
+        #expect(throws: CodecError.unsupportedSchemaVersion(4)) { try WhyNodeCodec.decode(data) }
+    }
+
+    @Test func v2_문서는_글자_크기를_기본값으로_채워_연다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(map.file)) as! [String: Any]
+        object["schemaVersion"] = 2
+        object["nodes"] = (object["nodes"] as! [[String: Any]]).map { node in
+            var node = node
+            node["textScale"] = nil
+            return node
+        }
+        let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.schemaVersion == WhyNodeFile.currentSchemaVersion)
+        #expect(decoded.nodes.allSatisfy { $0.textScale == 1 })
+        #expect(decoded.nodes.map(\.question) == map.file.nodes.map(\.question))
     }
 
     @Test func 정의되지_않은_필드와_빠진_필드를_거부한다() throws {
@@ -160,6 +176,18 @@ struct MindMapTests {
         map.deleteSubtree(a)
         answered(&map, a)
         #expect(map[a] == nil)
+    }
+
+    @Test func 노드_글자_크기는_범위_안으로_맞추고_왕복_저장된다() throws {
+        var map = MindMap.new(now: t0)
+        map.setTextScale(map.rootId, 1.234, now: t0)
+        #expect(map.root.textScale == 1.23)
+        map.setTextScale(map.rootId, 10, now: t0)
+        #expect(map.root.textScale == Node.textScaleRange.upperBound)
+        map.setTextScale(map.rootId, .nan, now: t0)
+        #expect(map.root.textScale == 1)
+        map.setTextScale(map.rootId, 1.5, now: t0)
+        #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
     }
 
     @Test func 요청이_없는_대기_노드만_중단_상태가_된다() throws {

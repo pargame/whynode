@@ -217,6 +217,13 @@ public struct MindMap: Equatable, Sendable {
         update(id, now: now) { $0.collapsed = collapsed }
     }
 
+    /// 노드 하나의 글자 크기를 바꾼다. 노드 크기는 그대로다.
+    public mutating func setTextScale(_ id: WID, _ scale: Double, now: Date = Date()) {
+        let scale = Node.clampedTextScale(scale)
+        guard let node = self[id], node.textScale != scale else { return }
+        update(id, now: now) { $0.textScale = scale }
+    }
+
     /// 사용자가 직접 옮긴 노드는 자동 배치에서 제외한다.
     public mutating func move(_ id: WID, to point: (x: Double, y: Double), pinned: Bool = true, now: Date = Date()) {
         update(id, now: now) {

@@ -83,6 +83,7 @@ struct MapScreen: View {
     private func nodeStack(_ node: Node) -> some View {
         let focused = focusedId == node.id
         let isDragging = canvas.dragging?.id == node.id
+        let textScale = settings.textScale * canvas.textScale(of: node)
         return VStack(spacing: 12) {
             NodeBubble(
                 node: node,
@@ -90,7 +91,7 @@ struct MapScreen: View {
                 isDimmed: isDimmed(node.id),
                 isSuggesting: ai.suggesting.contains(node.id),
                 isQuiet: canvas.isMoving,
-                textScale: settings.textScale,
+                textScale: textScale,
                 onRetry: { retry(node.id) }
             )
             .equatable()
@@ -102,28 +103,44 @@ struct MapScreen: View {
             .contextMenu { menu(for: node) }
 
             if focused, node.status == .done {
-                suggestionChips(for: node)
+                suggestionChips(for: node, textScale: textScale)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
+        // 펼친 노드 위에서의 핀치는 화면 확대 대신 이 노드의 글자 크기를 바꾼다. 노드 크기는 그대로다.
+        .gesture(textPinchGesture(for: node), including: focused ? .all : .subviews)
+    }
+
+    private func textPinchGesture(for node: Node) -> some Gesture {
+        MagnifyGesture()
+            .onChanged { value in
+                withoutAnimation { canvas.textPinch = (node.id, value.magnification) }
+            }
+            .onEnded { value in
+                let target = node.textScale * value.magnification
+                withoutAnimation {
+                    document.perform("글자 크기", undoManager: undoManager) { $0.setTextScale(node.id, target) }
+                    canvas.textPinch = nil
+                }
+            }
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
-    private func suggestionChips(for node: Node) -> some View {
+    private func suggestionChips(for node: Node, textScale: Double) -> some View {
         VStack(spacing: 8) {
             ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                chip(Text(suggestion.text)) { pick(suggestion, of: node.id) }
+                chip(Text(suggestion.text), textScale: textScale) { pick(suggestion, of: node.id) }
             }
-            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary)) {
+            chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale) {
                 ask(.custom(parent: node.id))
             }
         }
     }
 
-    private func chip(_ label: Text, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: Text, textScale: Double, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
-                .font(.scaled(.callout, settings.textScale))
+                .font(.scaled(.callout, textScale))
                 .lineLimit(2)
                 .frame(maxWidth: NodeBubble.expandedWidth - 40)
                 .padding(.horizontal, 14)

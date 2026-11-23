@@ -27,7 +27,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 * **데이터 흐름**: 화면 동작 → `WhyNodeDocument.perform`(UndoManager 등록 = 자동 저장 트리거) → `MindMap` 변경. AI가 필요하면 `AIController`가 `ContextBuilder`로 맥락을 만들어 프로바이더에 보내고, `ResponseValidator`를 거쳐 `MindMap.applyAnswer`로 반영합니다.
 * **시뮬레이션**: 버튼을 누르면 `MapScreen`이 `ForceSimulation`을 만들고 `FrameTicker`로 매 프레임 한 틱씩 돌려 화면에만 반영하다가, 멈추는 순간 `MindMap.arrange`로 Undo 1회 반영합니다.
 * **화면 갱신 범위**: 카메라 · 노드 끌기 · 시뮬레이션처럼 매 프레임 바뀌는 값은 `CanvasModel`(@Observable)에 두고 `NodeLayer` · `EdgeLayer`만 읽습니다. `MapScreen.body`에서 이 값을 읽으면 매 프레임 화면 전체가 다시 계산되므로 피합니다(`isRunning`은 그래서 계산 프로퍼티가 아닌 저장 프로퍼티). 선은 시뮬레이션 중에만 `Canvas` 하나로 그리고, 평소에는 노드 애니메이션과 박자를 맞추는 `EdgeShape`를 씁니다.
-* **글자 크기**: `SettingsStore.textScale`(0.8~1.8, 0.1 단위)을 노드 질문 · 답변 · 추가 질문 칩 글꼴에만 곱합니다(`Font.scaled`). 노드 크기(원 140 · 카드 폭 380)는 고정이고, 원 안 질문 줄 수가 `4 / 배율`로 줄어 생략(…)이 늘어납니다. 도구 막대 버튼과 보기 메뉴 ⌘= · ⌘- · ⌘0.
+* **글자 크기**: 앱 전체 배율 `SettingsStore.textScale`(0.8~1.8, 0.1 단위) × 노드별 `Node.textScale`(0.6~2.5, 파일 저장, schemaVersion 3)을 노드 질문 · 답변 · 추가 질문 칩 글꼴에만 곱합니다(`Font.scaled`). 노드별 값은 펼친 노드 위 핀치로 바꾸고(핀치 중 값은 `CanvasModel.textPinch`), 놓을 때 Undo 1회로 확정합니다. 노드 크기(원 140 · 카드 폭 380)는 고정이고, 원 안 질문 줄 수가 `4 / 배율`로 줄어 생략(…)이 늘어납니다. 도구 막대 버튼과 보기 메뉴 ⌘= · ⌘- · ⌘0.
 * **실행 취소와 AI 요청**: AI 답변도 Undo 단계입니다. 되돌린 결과에 진행 중 요청(`WhyNodeDocument.inFlight`)이 없는 대기 노드가 생기면 `interruptPending`으로 "중단됨" 오류 상태로 바꿔 다시 시도할 수 있게 합니다.
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값 · 글자 크기는 UserDefaults(`ai.settings`, `physics.settings`, `text.scale`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
@@ -36,7 +36,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 | 대상 | 방법 |
 | :--- | :--- |
-| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (54개) |
+| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (56개) |
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
@@ -57,7 +57,7 @@ App (SwiftUI 문서 앱)                       WhyNodeCore (화면 없는 로직
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
+1. **앱 화면 실사용 확인**: 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세**: 가지 묶음(SPEC 2.5, 8.3), 성능 설계(SPEC 8: 화면 밖 생략 · LOD · 새 노드 부분 배치), 자동 배치 좌표의 Undo 없는 저장 방법 검증(SPEC 7.6 미결).

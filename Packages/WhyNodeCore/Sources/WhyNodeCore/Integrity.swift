@@ -9,6 +9,7 @@ public enum IntegrityIssue: Equatable, Sendable {
     case danglingRefRemoved(node: WID, target: WID)
     case danglingUsedByCleared(node: WID, suggestion: WID)
     case interruptedRequest(WID)
+    case textScaleClamped(WID)
 }
 
 /// 불러온 문서의 무결성 규칙을 검사하고 복구한다 (SPEC 7.5).
@@ -88,6 +89,15 @@ public enum Integrity {
             file.nodes[i].status = .error
             file.nodes[i].error = interruptedMessage
             issues.append(.interruptedRequest(file.nodes[i].id))
+        }
+
+        // 5. 글자 크기 배율은 허용 범위 안이어야 한다.
+        for i in file.nodes.indices {
+            let clamped = Node.clampedTextScale(file.nodes[i].textScale)
+            if clamped != file.nodes[i].textScale {
+                file.nodes[i].textScale = clamped
+                issues.append(.textScaleClamped(file.nodes[i].id))
+            }
         }
 
         return (file, issues)
