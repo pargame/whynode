@@ -196,8 +196,10 @@ public struct ForceSimulation: Sendable {
             let target = settings.linkDistance + 2 * Self.nodeRadius
             let k = (length - target) / length * alpha * strength
             let delta = d * k
-            velocity[link.target] -= delta * link.bias
-            velocity[link.source] += delta * (1 - link.bias)
+            // 한쪽 끝이 고정이면 움직이는 쪽이 이동을 전부 맡는다. 고정된 쪽 몫은 어차피 버려진다.
+            let bias = fixed[link.source] != nil ? 1 : fixed[link.target] != nil ? 0 : link.bias
+            velocity[link.target] -= delta * bias
+            velocity[link.source] += delta * (1 - bias)
         }
     }
 

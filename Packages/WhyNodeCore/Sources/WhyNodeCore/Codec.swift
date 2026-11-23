@@ -4,6 +4,7 @@ public enum CodecError: Error, Equatable, LocalizedError {
     case notJSONObject
     case unsupportedSchemaVersion(Int)
     case missingSchemaVersion
+    case invalidSchemaVersion(Int)
     case unexpectedKeys(path: String, keys: [String])
     case missingKeys(path: String, keys: [String])
 
@@ -15,6 +16,8 @@ public enum CodecError: Error, Equatable, LocalizedError {
             "더 새로운 버전(schemaVersion \(version))의 문서입니다. 앱을 업데이트해 주세요."
         case .missingSchemaVersion:
             "schemaVersion이 없는 문서입니다. v1 파일은 가져오기로 여세요."
+        case .invalidSchemaVersion(let version):
+            "알 수 없는 schemaVersion(\(version))입니다."
         case .unexpectedKeys(let path, let keys):
             "\(path)에 정의되지 않은 필드가 있습니다: \(keys.joined(separator: ", "))"
         case .missingKeys(let path, let keys):
@@ -89,6 +92,10 @@ public enum WhyNodeCodec {
         }
         guard version <= WhyNodeFile.currentSchemaVersion else {
             throw CodecError.unsupportedSchemaVersion(version)
+        }
+        // schemaVersion은 2부터 쓴다. v1 파일에는 이 필드가 없다.
+        guard version >= 2 else {
+            throw CodecError.invalidSchemaVersion(version)
         }
         let migrated = migrate(object, from: version)
         try SchemaGuard.check(migrated)

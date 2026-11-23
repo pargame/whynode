@@ -49,6 +49,7 @@ struct MapScreen: View {
             canvas.offset.height += delta.height
         })
         .background(DeleteKeyMonitor { deleteFocused() })
+        .background(WindowReader { [canvas] in canvas.window = $0 })
         #endif
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
@@ -79,7 +80,16 @@ struct MapScreen: View {
         }
         .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
         .onChange(of: settings.ai) { updateProvider() }
-        .onChange(of: map.nodes.count) { canvas.simulation?.sync(with: map) }
+        .onChange(of: map.nodes.count) { old, new in
+            // 자동 정리 중에 실행 취소 · 삭제로 노드가 줄면, 되돌린 문서에 정리 좌표를 덮어쓰지 않도록 결과 없이 멈춘다.
+            if new < old, canvas.isSimulating, !canvas.isRunning {
+                cancelAutoArrange()
+            } else {
+                canvas.simulation?.sync(with: map)
+            }
+        }
+        // 핀치 도중 포커스가 바뀌면 제스처가 끝 신호 없이 취소될 수 있어 핀치 중 값을 비운다.
+        .onChange(of: focusedId) { canvas.textPinch = nil }
         .onDisappear { finishPhysics() }
     }
 
@@ -196,13 +206,12 @@ struct MapScreen: View {
     }
 
     /// 빛은 갑자기 켜지지 않고 0.5초 안에 은은하게 밝아지고 옅어진다.
+    /// 애니메이션은 빛 쪽에서 직접 건다(NodeBubble · EdgeLayer).
     private func hover(_ id: WID, _ inside: Bool) {
-        withAnimation(Theme.glowAnimation) {
-            if inside {
-                canvas.hoveredId = id
-            } else if canvas.hoveredId == id {
-                canvas.hoveredId = nil
-            }
+        if inside {
+            canvas.hoveredId = id
+        } else if canvas.hoveredId == id {
+            canvas.hoveredId = nil
         }
     }
 
@@ -427,6 +436,7 @@ struct MapScreen: View {
         guard map.nodes.count > 1 else { return }
         if canvas.isSimulating { finishPhysics() }
         focusedId = nil
+        canvas.textPinch = nil
         canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics), manual: true)
         ticker.start { stepPhysics() }
     }
@@ -480,8 +490,22 @@ struct MapScreen: View {
             } else {
                 // 자동 배치는 사용자가 고정한 노드를 건드리지 않는다.
                 document.applyWithoutUndo { $0.applyLayout(positions) }
+                markDocumentEdited()
             }
         }
+    }
+
+    /// 자동 정리를 결과 반영 없이 멈춘다.
+    private func cancelAutoArrange() {
+        ticker.stop()
+        withoutAnimation { _ = canvas.stopSimulation() }
+    }
+
+    /// 실행 취소에 쌓지 않은 변경도 저장되도록, 이 화면이 놓인 문서 창의 문서에 변경 표시만 한다 (SPEC 7.6).
+    private func markDocumentEdited() {
+        #if os(macOS)
+        (canvas.window?.windowController?.document as? NSDocument)?.updateChangeCount(.changeDone)
+        #endif
     }
 
     /// 조절값을 바꾸면 결과가 바로 보이도록, 도는 중이면 다시 데우고 멈춰 있으면 시작한다.

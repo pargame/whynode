@@ -18,6 +18,10 @@ final class CanvasModel {
     var simulation: ForceSimulation?
     /// 마우스를 올린 노드. 이 노드와 이웃의 테두리 · 선을 은은하게 밝힌다.
     var hoveredId: WID?
+    #if os(macOS)
+    /// 이 캔버스가 놓인 문서 창. 실행 취소 없이 바꾼 좌표를 문서 변경으로 표시할 때 쓴다.
+    @ObservationIgnored weak var window: NSWindow?
+    #endif
     /// 펼친 노드 안에서 핀치 중인 노드와 배율. 손을 떼면 노드의 글자 크기로 확정된다.
     var textPinch: (id: WID, factor: CGFloat)?
     /// 시뮬레이션 중에 잡은 노드의 시작 위치(월드 좌표)
@@ -129,14 +133,19 @@ struct EdgeLayer: View {
 
     var body: some View {
         let items = edgeItems
-        if canvas.isSimulating {
-            // 시뮬레이션 중에는 위치가 애니메이션 없이 바뀌므로 보간이 필요 없다.
+        if canvas.isRunning {
+            // 버튼 시뮬레이션 중에는 포커스가 없고 위치가 애니메이션 없이 바뀌므로 Canvas 한 장으로 그린다.
+            // 새 노드 주변 자동 정리 중에는 포커스 흐림 · 호버 빛을 그대로 보여야 하므로 아래 분기를 쓴다.
             Canvas { context, _ in
                 for item in items {
                     var path = Path()
                     path.move(to: item.from)
                     path.addLine(to: item.to)
-                    context.stroke(path, with: .color(item.kind == .tree ? Theme.edge : Theme.refEdge), style: Self.style(item.kind))
+                    let color = item.kind == .tree ? Theme.edge : Theme.refEdge
+                    context.stroke(path, with: .color(item.dimmed ? color.opacity(0.25) : color), style: Self.style(item.kind))
+                    if item.highlighted {
+                        context.stroke(path, with: .color(Theme.glow.opacity(0.9)), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: item.kind == .tree ? [] : [6, 5]))
+                    }
                 }
             }
             .allowsHitTesting(false)
@@ -158,6 +167,8 @@ struct EdgeLayer: View {
                     }
                 }
                 .allowsHitTesting(false)
+                // 빛만 은은하게 켜고 끈다. 같은 순간의 화면 이동 등에는 애니메이션이 섞이지 않는다.
+                .animation(Theme.glowAnimation, value: edge.highlighted)
             }
         }
     }

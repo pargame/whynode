@@ -48,6 +48,9 @@ struct CodecTests {
         object["schemaVersion"] = 4
         let data = try JSONSerialization.data(withJSONObject: object)
         #expect(throws: CodecError.unsupportedSchemaVersion(4)) { try WhyNodeCodec.decode(data) }
+        object["schemaVersion"] = 0
+        let old = try JSONSerialization.data(withJSONObject: object)
+        #expect(throws: CodecError.invalidSchemaVersion(0)) { try WhyNodeCodec.decode(old) }
     }
 
     @Test func v2_문서는_글자_크기를_기본값으로_채워_연다() throws {

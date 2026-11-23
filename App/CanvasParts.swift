@@ -110,6 +110,32 @@ struct ScrollPanMonitor: NSViewRepresentable {
     }
 }
 
+/// 뷰가 놓인 창을 알려 준다.
+struct WindowReader: NSViewRepresentable {
+    let onWindow: (NSWindow?) -> Void
+
+    func makeNSView(context: Context) -> ReaderView {
+        let view = ReaderView()
+        view.onWindow = onWindow
+        return view
+    }
+
+    func updateNSView(_ view: ReaderView, context: Context) {
+        view.onWindow = onWindow
+    }
+
+    final class ReaderView: NSView {
+        var onWindow: ((NSWindow?) -> Void)?
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            onWindow?(window)
+        }
+
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+    }
+}
+
 /// ⌫ · ⌦ 키로 포커스 노드를 지운다. 이 뷰가 놓인 창이 키 창이고, 글자 입력 중이 아니며, 시트 · 알림이 없을 때만 처리한다.
 /// 메뉴 단축키로 두면 입력칸의 글자 지우기까지 가로채므로 이벤트를 직접 거른다.
 struct DeleteKeyMonitor: NSViewRepresentable {

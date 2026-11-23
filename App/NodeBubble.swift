@@ -24,10 +24,59 @@ struct NodeBubble: View, Equatable {
     var isHighlighted = false
     let onRetry: () -> Void
 
-    /// 위치가 바뀌는 매 프레임마다 본문을 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
+    /// 위치가 바뀌는 매 프레임마다 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
     static func == (lhs: NodeBubble, rhs: NodeBubble) -> Bool {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isDimmed == rhs.isDimmed
-            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale && lhs.zoom == rhs.zoom && lhs.isHighlighted == rhs.isHighlighted
+            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale
+            && lhs.zoom == rhs.zoom && lhs.isHighlighted == rhs.isHighlighted
+    }
+
+    private var showsDetail: Bool { isFocused && node.status != .empty }
+    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail) }
+
+    static func shape(expanded: Bool) -> RoundedRectangle {
+        RoundedRectangle(cornerRadius: expanded ? 22 : compactDiameter / 2, style: .continuous)
+    }
+
+    /// 본문은 화면 배율을 모르는 하위 뷰로 두어, 확대 · 축소 중에는 테두리 · 빛만 다시 그린다.
+    var body: some View {
+        NodeBubbleBody(node: node, isFocused: isFocused, isSuggesting: isSuggesting, textScale: textScale, onRetry: onRetry)
+            .equatable()
+            .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: (isFocused ? 2.5 : 1) / zoom))
+            // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
+            .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
+            .overlay {
+                // 프레넬 효과처럼 가장자리가 가장 밝고 안쪽으로 갈수록 옅어지는 빛. 테두리 굵기처럼 화면 배율과 상관없이 같게 보인다.
+                ZStack {
+                    if isHighlighted {
+                        ZStack {
+                            shape.stroke(Theme.glow.opacity(0.7), lineWidth: 10 / zoom)
+                                .blur(radius: 6 / zoom)
+                                .clipShape(shape)
+                            shape.stroke(Theme.glow.opacity(0.9), lineWidth: 1.5 / zoom)
+                        }
+                        .transition(.opacity)
+                    }
+                }
+                .allowsHitTesting(false)
+                // 빛만 은은하게 켜고 끈다. 같은 순간의 화면 이동 등에는 애니메이션이 섞이지 않는다.
+                .animation(Theme.glowAnimation, value: isHighlighted)
+            }
+            .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
+            .contentShape(shape)
+    }
+}
+
+/// 노드 본문(질문 · 답변 · 상태). 화면 배율 · 흐림 · 빛과 무관한 값만 받아, 그 값이 같으면 다시 계산하지 않는다.
+private struct NodeBubbleBody: View, Equatable {
+    let node: Node
+    let isFocused: Bool
+    let isSuggesting: Bool
+    let textScale: CGFloat
+    let onRetry: () -> Void
+
+    static func == (lhs: NodeBubbleBody, rhs: NodeBubbleBody) -> Bool {
+        lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isSuggesting == rhs.isSuggesting && lhs.textScale == rhs.textScale
     }
 
     /// 원 안에 들어가는 질문 줄 수. 기본 크기에서 4줄이 차지하는 높이를 넘지 않도록 글자가 커지면 줄인다.
@@ -37,9 +86,7 @@ struct NodeBubble: View, Equatable {
     @State private var titleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
-    private var shape: RoundedRectangle {
-        RoundedRectangle(cornerRadius: showsDetail ? 22 : Self.compactDiameter / 2, style: .continuous)
-    }
+    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail) }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -66,31 +113,13 @@ struct NodeBubble: View, Equatable {
             }
         }
         // 질문의 중심이 원의 중심(위에서 70pt)에 오도록 위 여백을 맞춘다. 펼쳐도 같은 여백이라 질문이 움직이지 않는다.
-        .padding(.top, max(10, Self.titleCenter - titleHeight / 2))
+        .padding(.top, max(10, NodeBubble.titleCenter - titleHeight / 2))
         .padding(.bottom, showsDetail ? 18 : 0)
-        .frame(width: showsDetail ? Self.expandedWidth : Self.compactDiameter, alignment: .top)
-        .frame(minHeight: Self.compactDiameter, alignment: .top)
-        .frame(height: showsDetail ? nil : Self.compactDiameter, alignment: .top)
+        .frame(width: showsDetail ? NodeBubble.expandedWidth : NodeBubble.compactDiameter, alignment: .top)
+        .frame(minHeight: NodeBubble.compactDiameter, alignment: .top)
+        .frame(height: showsDetail ? nil : NodeBubble.compactDiameter, alignment: .top)
         .layeredFill(shape, tint: Theme.tint(for: node.status))
         .clipShape(shape)
-        .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: (isFocused ? 2.5 : 1) / zoom))
-        // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
-        .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
-        .overlay {
-            // 프레넬 효과처럼 가장자리가 가장 밝고 안쪽으로 갈수록 옅어지는 빛. 테두리 굵기처럼 화면 배율과 상관없이 같게 보인다.
-            if isHighlighted {
-                ZStack {
-                    shape.stroke(Theme.glow.opacity(0.7), lineWidth: 10 / zoom)
-                        .blur(radius: 6 / zoom)
-                        .clipShape(shape)
-                    shape.stroke(Theme.glow.opacity(0.9), lineWidth: 1.5 / zoom)
-                }
-                .allowsHitTesting(false)
-                .transition(.opacity)
-            }
-        }
-        .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
-        .contentShape(shape)
     }
 
     private func title(lineLimit: Int?) -> some View {
@@ -98,7 +127,7 @@ struct NodeBubble: View, Equatable {
             .font(.scaled(.callout, textScale, weight: .medium))
             .multilineTextAlignment(.center)
             .lineLimit(lineLimit)
-            .frame(width: Self.titleWidth)
+            .frame(width: NodeBubble.titleWidth)
             .fixedSize(horizontal: false, vertical: true)
     }
 
