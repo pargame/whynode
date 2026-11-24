@@ -4,7 +4,6 @@ import WhyNodeCore
 
 /// WhyNode 시작 화면: 새 프로젝트 · 프로젝트 열기 · 최근 프로젝트 · v1 가져오기 (SPEC 2.1)
 struct LauncherView: View {
-    @Environment(\.newDocument) private var newDocument
     @Environment(\.openDocument) private var openDocument
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
@@ -118,11 +117,11 @@ struct LauncherView: View {
         Binding(get: { importing != nil }, set: { if !$0 { importing = nil } })
     }
 
-    /// 설정이 켜져 있으면 파일을 먼저 만들어 연다(선저장).
+    /// 저장 위치에 파일을 먼저 만들어 연다(선저장).
     private func create(_ map: MindMap, name: String) {
         Task {
             do {
-                try await ProjectCreator(settings: settings, newDocument: newDocument, openDocument: openDocument).create(map, name: name)
+                try await ProjectCreator(settings: settings, openDocument: openDocument).create(map, name: name)
                 dismissWindow(id: LauncherView.windowId)
             } catch {
                 errorMessage = error.localizedDescription

@@ -8,7 +8,6 @@ final class SettingsStore {
     private static let settingsKey = "ai.settings"
     private static let physicsKey = "physics.settings"
     private static let textScaleKey = "text.scale"
-    private static let preSaveKey = "project.presave"
     private static let projectFolderKey = "project.folder"
 
     private(set) var ai: AISettings?
@@ -30,11 +29,6 @@ final class SettingsStore {
     func stepTextScale(_ direction: Int) {
         let next = ((textScale + Double(direction) * Self.textScaleStep) * 10).rounded() / 10
         textScale = min(max(next, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound)
-    }
-
-    /// 새 프로젝트를 만들자마자 ~/Documents/WhyNode에 파일로 저장할지(선저장). 기본은 켜짐.
-    var preSavesNewProjects: Bool = true {
-        didSet { UserDefaults.standard.set(preSavesNewProjects, forKey: Self.preSaveKey) }
     }
 
     /// 선저장 폴더를 사용자가 고른 경우의 경로. nil이면 기본 폴더(~/Documents/WhyNode).
@@ -59,9 +53,6 @@ final class SettingsStore {
             physics = saved.clamped
         }
         customProjectFolder = UserDefaults.standard.string(forKey: Self.projectFolderKey)
-        if UserDefaults.standard.object(forKey: Self.preSaveKey) != nil {
-            preSavesNewProjects = UserDefaults.standard.bool(forKey: Self.preSaveKey)
-        }
         let savedScale = UserDefaults.standard.double(forKey: Self.textScaleKey)
         if Self.textScaleRange.contains(savedScale) { textScale = savedScale }
     }

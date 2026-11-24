@@ -62,19 +62,13 @@ enum ProjectFiles {
     }
 }
 
-/// 새 프로젝트 만들기. 설정(`SettingsStore.preSavesNewProjects`)이 켜져 있으면 파일을 먼저 만들고 열며,
-/// 꺼져 있으면 이름 없는 문서로 연다(끌 때 저장 · 삭제를 묻는 macOS 기본 동작).
+/// 새 프로젝트 만들기. 항상 저장 위치에 파일을 먼저 만들고 연다.
 @MainActor
 struct ProjectCreator {
     let settings: SettingsStore
-    let newDocument: NewDocumentAction
     let openDocument: OpenDocumentAction
 
-    func create(_ map: MindMap = .new(), name: String = "새 프로젝트") async throws {
-        guard settings.preSavesNewProjects else {
-            newDocument { WhyNodeDocument(map: map) }
-            return
-        }
+    func create(_ map: MindMap = .new(), name: String = ProjectFiles.untitledName) async throws {
         let url = try ProjectFiles.create(map, name: name, in: settings.projectFolder)
         try await openDocument(at: url)
     }
@@ -83,13 +77,12 @@ struct ProjectCreator {
 /// 파일 > 새 프로젝트 (⌘N)도 시작 화면과 같은 방식으로 만든다.
 struct NewProjectCommands: Commands {
     let settings: SettingsStore
-    @Environment(\.newDocument) private var newDocument
     @Environment(\.openDocument) private var openDocument
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
             Button("새 프로젝트") {
-                let creator = ProjectCreator(settings: settings, newDocument: newDocument, openDocument: openDocument)
+                let creator = ProjectCreator(settings: settings, openDocument: openDocument)
                 Task { try? await creator.create() }
             }
             .keyboardShortcut("n")

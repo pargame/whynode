@@ -78,10 +78,8 @@ struct AISetupView: View {
 
             #if os(macOS)
             if mode == .settings {
-                @Bindable var settings = settings
                 Form {
                     Section("프로젝트") {
-                        Toggle("새 프로젝트를 만들자마자 저장", isOn: $settings.preSavesNewProjects)
                         LabeledContent("저장 위치") {
                             HStack {
                                 Text(settings.projectFolder.path(percentEncoded: false))
@@ -94,16 +92,13 @@ struct AISetupView: View {
                                 }
                             }
                         }
-                        .disabled(!settings.preSavesNewProjects)
-                        Text(settings.preSavesNewProjects
-                             ? "새 프로젝트는 저장 위치에 바로 저장되고, 이후 자동 저장됩니다. 이름은 창 제목을 눌러 바꿀 수 있습니다."
-                             : "새 프로젝트는 이름 없이 열리고, 처음 저장할 때 위치를 고릅니다. 저장하지 않고 끄면 저장 · 삭제를 묻습니다.")
+                        Text("새 프로젝트는 저장 위치에 바로 저장되고, 이후 자동 저장됩니다. 파일 이름은 첫 노드의 주제를 따릅니다.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .formStyle(.grouped)
-                .frame(height: 160)
+                .frame(height: 120)
                 .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         settings.customProjectFolder = url.path(percentEncoded: false)
