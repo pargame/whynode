@@ -37,7 +37,9 @@ xcuserdata/
 *.xcuserdata/
 /WhyNode.app
 
-# Local workspace notes & sample data
+# Local workspace notes & sample data (planning docs stay on this Mac only)
 STATUS.md
+SPEC.md
+CONCEPT.md
 projects/
 *.whynode
