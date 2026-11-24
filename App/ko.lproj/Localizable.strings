@@ -29,7 +29,6 @@
 "Repulsion" = "반발력";
 "Tension" = "장력";
 "The root stays fixed. Repulsion spreads nodes apart, and tension pulls linked nodes together." = "루트는 고정됩니다. 반발력은 노드를 퍼뜨리고, 장력은 이어진 노드를 당깁니다.";
-"Reset to Defaults" = "기본값으로 설정";
 
 /* 메뉴 · 도구 막대 */
 "Larger Text" = "글자 크게";

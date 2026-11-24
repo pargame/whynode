@@ -68,22 +68,28 @@ struct PhysicsControl: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("Reset to Defaults") { settings = .default }
-                .controlSize(.small)
-                .disabled(settings == .default)
-                .frame(maxWidth: .infinity)
         }
+    }
+
+    /// 정수 눈금 값
+    private static func ticks(in range: ClosedRange<Double>) -> [Double] {
+        Array(stride(from: range.lowerBound.rounded(.up), through: range.upperBound, by: 1))
     }
 
     private func row(_ title: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.caption.weight(.medium))
             HStack(spacing: 10) {
-                // 눈금 표시 없이 매끄럽게 움직이고, 값만 단위에 맞춰 반올림한다.
+                // 값은 단위(0.1)에 맞춰 반올림하고, 눈금은 정수마다만 표시한다.
                 Slider(value: Binding(
                     get: { value.wrappedValue },
                     set: { value.wrappedValue = ($0 / step).rounded() * step }
-                ), in: range)
+                ), in: range) {
+                    Text(title)
+                } ticks: {
+                    SliderTickContentForEach(Self.ticks(in: range), id: \.self) { SliderTick($0) }
+                }
+                .labelsHidden()
                 // 직접 입력한 값은 범위 안으로 맞춘다.
                 TextField(title, value: Binding(
                     get: { value.wrappedValue },
