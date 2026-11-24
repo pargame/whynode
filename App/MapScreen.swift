@@ -57,7 +57,7 @@ struct MapScreen: View {
             }
         }
         .overlay(alignment: .bottomLeading) {
-            AIStatusBar(center: settings.requests, document: ObjectIdentifier(document), projectUsage: map.file.project.usage, connection: settings.ai?.summary)
+            AIStatusBar(center: settings.requests, document: ObjectIdentifier(document), projectUsage: map.file.project.usage, connection: settings.ai?.summary, model: AIStatusBar.modelLabel(settings.ai))
                 .padding(16)
         }
         .overlay(alignment: .bottomTrailing) {

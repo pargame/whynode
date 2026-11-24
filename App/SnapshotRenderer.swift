@@ -76,7 +76,7 @@ enum SnapshotRenderer {
         let doc = ObjectIdentifier(center)
         let usage = TokenUsage(inputTokens: 9_820, outputTokens: 2_480, costUSD: 0.083, requests: 5)
         let content = VStack(alignment: .leading, spacing: 12) {
-            AIStatusBar(center: center, document: doc, projectUsage: usage, connection: "Anthropic Claude · My CLI")
+            AIStatusBar(center: center, document: doc, projectUsage: usage, connection: "Google Gemini · My CLI", model: AIStatusBar.modelLabel(AISettings(provider: .google, connection: .cli, model: "gemini-4-neon-high")))
             AIStatusBar(center: center, document: doc, projectUsage: .zero, connection: nil)
         }
         .padding(32)

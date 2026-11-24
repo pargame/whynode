@@ -54,82 +54,65 @@ struct AISetupView: View {
                 }
             }
 
+            // 설정 전체를 한 Form에 섹션으로 나눠, 섹션마다 제목을 달고 창 높이에 맞춰 스크롤한다.
             Form {
-                Picker("AI Provider", selection: $provider) {
-                    ForEach(ProviderKind.allCases) { Text($0.displayName).tag($0) }
-                }
-
-                Picker("Connection", selection: $connection) {
-                    #if os(macOS)
-                    Text("My CLI (subscription)").tag(Connection.cli)
-                    #endif
-                    Text("API Key").tag(Connection.apiKey)
-                    Text("Official Sign-in (coming soon)").tag(Connection.oauth)
-                }
-
-                switch connection {
-                case .cli: cliSection
-                case .apiKey: apiKeySection
-                case .oauth:
-                    Text("Official sign-in will be available once WhyNode is registered with each AI provider. For now, use your CLI or an API key.")
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .formStyle(.grouped)
-
-            #if os(macOS)
-            if mode == .settings {
-                @Bindable var settings = settings
-                Form {
-                    Section("General") {
-                        Picker("Language", selection: $settings.language) {
-                            ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
-                        }
-                        if settings.needsRestartForLanguage {
-                            HStack {
-                                Text("Restart WhyNode to apply the language.")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Spacer()
-                                Button("Restart Now") { settings.relaunch() }
-                            }
-                        }
+                Section {
+                    Picker("AI Provider", selection: $provider) {
+                        ForEach(ProviderKind.allCases) { Text($0.displayName).tag($0) }
                     }
-                    Section("Projects") {
-                        LabeledContent("Save Location") {
-                            HStack {
-                                Text(settings.projectFolder.path(percentEncoded: false))
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                                    .foregroundStyle(.secondary)
-                                Button("Change") { choosingFolder = true }
-                                if settings.customProjectFolder != nil {
-                                    Button("Default Location") { settings.customProjectFolder = nil }
-                                }
-                            }
-                        }
-                        Text("New projects are saved here right away and saved automatically afterward. The file name follows the first node's topic.")
-                            .font(.caption)
+
+                    Picker("Connection", selection: $connection) {
+                        #if os(macOS)
+                        Text("My CLI (subscription)").tag(Connection.cli)
+                        #endif
+                        Text("API Key").tag(Connection.apiKey)
+                        Text("Official Sign-in (coming soon)").tag(Connection.oauth)
+                    }
+
+                    switch connection {
+                    case .cli: cliSection
+                    case .apiKey: apiKeySection
+                    case .oauth:
+                        Text("Official sign-in will be available once WhyNode is registered with each AI provider. For now, use your CLI or an API key.")
+                            .font(.callout)
                             .foregroundStyle(.secondary)
                     }
-                }
-                .formStyle(.grouped)
-                .frame(height: 210)
-                .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
-                    if case .success(let url) = result {
-                        settings.customProjectFolder = url.path(percentEncoded: false)
+
+                    // AI 연결은 테스트에 성공해야 저장한다. 아래 섹션들은 바꾸는 즉시 적용된다.
+                    testResult
+                    HStack {
+                        if mode == .settings, let current = settings.ai {
+                            Text("Current: \(current.summary)").font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Test Connection") { runTest() }
+                            .disabled(!canTest || testState == .running)
+                        Button(mode == .onboarding ? "Get Started" : "Save") { save() }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(!isPassed)
+                            .keyboardShortcut(.defaultAction)
                     }
+                } header: {
+                    Text("AI Connection")
+                }
+
+                #if os(macOS)
+                if mode == .settings {
+                    generalSection
+                    projectsSection
+                }
+                #endif
+            }
+            .formStyle(.grouped)
+            #if os(macOS)
+            .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
+                if case .success(let url) = result {
+                    settings.customProjectFolder = url.path(percentEncoded: false)
                 }
             }
             #endif
 
-            testResult
-
             HStack {
-                if mode == .settings, let current = settings.ai {
-                    Text("Current: \(current.summary)").font(.caption).foregroundStyle(.secondary)
-                }
                 Spacer()
                 if mode == .onboarding {
                     Button("Later") { onFinish() }
@@ -141,16 +124,10 @@ struct AISetupView: View {
                     }
                     .keyboardShortcut(.cancelAction)
                 }
-                Button("Test Connection") { runTest() }
-                    .disabled(!canTest || testState == .running)
-                Button(mode == .onboarding ? "Get Started" : "Save") { save() }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(!isPassed)
-                    .keyboardShortcut(.defaultAction)
             }
         }
         .padding(20)
-        .frame(minWidth: 520, minHeight: 440)
+        .frame(minWidth: 560, minHeight: mode == .settings ? 620 : 460)
         .onAppear(perform: loadCurrent)
         .onDisappear { cancelTest() }
         .onChange(of: provider) { resetForChange(); checkCLI() }
@@ -165,6 +142,46 @@ struct AISetupView: View {
             loadModels()
         }
     }
+
+    #if os(macOS)
+    private var generalSection: some View {
+        @Bindable var settings = settings
+        return Section("General") {
+            Picker("Language", selection: $settings.language) {
+                ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
+            }
+            if settings.needsRestartForLanguage {
+                HStack {
+                    Text("Restart WhyNode to apply the language.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Restart Now") { settings.relaunch() }
+                }
+            }
+        }
+    }
+
+    private var projectsSection: some View {
+        Section("Projects") {
+            LabeledContent("Save Location") {
+                HStack {
+                    Text(settings.projectFolder.path(percentEncoded: false))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .foregroundStyle(.secondary)
+                    Button("Change") { choosingFolder = true }
+                    if settings.customProjectFolder != nil {
+                        Button("Default Location") { settings.customProjectFolder = nil }
+                    }
+                }
+            }
+            Text("New projects are saved here right away and saved automatically afterward. The file name follows the first node's topic.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+    #endif
 
     // 연결 방식별 입력
 

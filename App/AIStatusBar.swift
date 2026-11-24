@@ -7,6 +7,8 @@ struct AIStatusBar: View {
     let document: ObjectIdentifier
     let projectUsage: TokenUsage
     let connection: String?
+    /// 짧은 모델 표시(모델 · effort). 연결 전이면 nil
+    var model: String? = nil
 
     @State private var showsDetail = false
 
@@ -28,6 +30,9 @@ struct AIStatusBar: View {
                 }
                 if queued > 0 {
                     Text("\(queued) queued").foregroundStyle(.secondary)
+                }
+                if let model {
+                    Text(verbatim: model).foregroundStyle(.secondary).lineLimit(1)
                 }
                 Divider().frame(height: 12)
                 Text("\(Self.tokens(projectUsage.totalTokens)) tokens")
@@ -96,6 +101,18 @@ struct AIStatusBar: View {
             value.monospacedDigit()
         }
         .font(.caption)
+    }
+
+    /// 모델 ID를 짧게 보여 준다. 끝이 effort(low · medium · high 등)면 "모델 · effort"로 나눈다. 비어 있으면 CLI · 프로바이더 기본 모델.
+    static func modelLabel(_ settings: AISettings?) -> String? {
+        guard let settings else { return nil }
+        guard !settings.model.isEmpty else { return String(localized: "Default model") }
+        let parts = settings.model.split(separator: "-")
+        let efforts: Set<String> = ["minimal", "low", "medium", "high", "xhigh", "max"]
+        if parts.count > 1, let last = parts.last, efforts.contains(last.lowercased()) {
+            return parts.dropLast().joined(separator: "-") + " · " + last
+        }
+        return settings.model
     }
 
     static func tokens(_ count: Int) -> String {
