@@ -555,7 +555,7 @@ struct MapScreen: View {
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
             Button { settings.stepTextScale(1) } label: { Label("글자 크게", systemImage: "textformat.size.larger") }
                 .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button { showSettings = true } label: { Label("AI 설정", systemImage: "gearshape") }
+            Button { showSettings = true } label: { Label("설정", systemImage: "gearshape") }
         }
     }
 

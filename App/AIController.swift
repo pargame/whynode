@@ -10,7 +10,7 @@ final class AIController {
     private(set) var suggesting: Set<WID> = []
     var notice: String?
 
-    static let notConfigured = "AI 연결 설정이 필요합니다. 도구 막대의 AI 설정에서 연결해 주세요."
+    static let notConfigured = "AI 연결 설정이 필요합니다. 도구 막대의 설정에서 연결해 주세요."
 
     private var running = 0
     private var waiting: [CheckedContinuation<Void, Never>] = []
