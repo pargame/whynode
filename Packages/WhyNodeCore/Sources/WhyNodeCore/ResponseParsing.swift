@@ -8,15 +8,15 @@ extension Prompt {
         let json = (try? encoder.encode(context)).map { String(decoding: $0, as: UTF8.self) } ?? "{}"
         let format = switch context.kind {
         case .answer:
-            #"{"answer": "3~4문장 답변", "summary": "한 줄 요약", "suggestions": ["추가 질문 3~4개"], "refs": [{"nodeId": "기존 노드 id", "reason": "연결 이유"}]}"#
+            #"{"answer": "3–4 sentence answer", "summary": "one-line summary", "suggestions": ["3–4 follow-up questions"], "refs": [{"nodeId": "existing node id", "reason": "why it is related"}]}"#
         case .suggest:
-            #"{"suggestions": ["추가 질문 3~4개"]}"#
+            #"{"suggestions": ["3–4 follow-up questions"]}"#
         }
         return """
-        맥락 패키지:
+        Context package:
         \(json)
 
-        다른 설명 없이 아래 형식의 JSON 객체 하나만 출력하라.
+        Output only one JSON object in the format below, with no other explanation.
         \(format)
         """
     }

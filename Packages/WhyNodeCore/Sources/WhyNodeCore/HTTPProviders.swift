@@ -121,7 +121,7 @@ public struct AnthropicProvider: AIProvider {
             "messages": [["role": "user", "content": Prompt.userMessage(for: context)]],
             "tools": [[
                 "name": "respond",
-                "description": "WhyNode 응답을 지정된 형식으로 돌려준다.",
+                "description": "Return the WhyNode response in the given format.",
                 "input_schema": Prompt.schemaObject(for: context.kind),
             ]],
             "tool_choice": ["type": "tool", "name": "respond"],
