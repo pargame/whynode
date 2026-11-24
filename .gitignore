@@ -27,15 +27,17 @@ credentials.json
 *.log
 logs/
 
-# Node / JS
-node_modules/
-dist/
-build/
-
-# Xcode (project.yml에서 생성)
+# Xcode & SwiftPM (WhyNode.xcodeproj is generated from project.yml)
 WhyNode.xcodeproj/
 App/Info.plist
 DerivedData/
 .build/
 .swiftpm/
+xcuserdata/
+*.xcuserdata/
 /WhyNode.app
+
+# Local workspace notes & sample data
+STATUS.md
+projects/
+*.whynode

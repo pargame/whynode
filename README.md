@@ -6,7 +6,6 @@ WhyNode is a native macOS and iPadOS app for building interactive knowledge mind
 
 - Concept & UX: [`CONCEPT.md`](CONCEPT.md)
 - Specification & Architecture: [`SPEC.md`](SPEC.md)
-- Progress & Roadmap: [`STATUS.md`](STATUS.md)
 
 ## Project Structure
 
@@ -18,7 +17,7 @@ WhyNode is a native macOS and iPadOS app for building interactive knowledge mind
 
 ## AI Connections & Token Optimization
 
-For every request, WhyNode assembles only the tree context relevant to the target node (see `SPEC.md` §6.1). Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead. Whenever you change these flags, re-measure token usage using the live tests in `STATUS.md`.
+For every request, WhyNode assembles only the tree context relevant to the target node (see `SPEC.md` §6.1). Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead.
 
 | Connection | Configuration | Purpose | Measured Impact |
 | :--- | :--- | :--- | :--- |
@@ -35,10 +34,9 @@ For every request, WhyNode assembles only the tree context relevant to the targe
 
 ## Building from Source (macOS)
 
-Select the target Xcode per command via `DEVELOPER_DIR` without modifying the system-wide `xcode-select` setting:
-
 ```zsh
-export DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer
+# (Optional) Select a specific Xcode installation without changing xcode-select
+# export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
 # Run core unit tests
 (cd Packages/WhyNodeCore && swift test)

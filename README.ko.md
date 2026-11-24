@@ -6,7 +6,6 @@
 
 - 서비스 기획: [`CONCEPT.md`](CONCEPT.md)
 - 기능 명세 및 아키텍처: [`SPEC.md`](SPEC.md)
-- 진행 현황과 다음 할 일: [`STATUS.md`](STATUS.md)
 
 ## 프로젝트 구조
 
@@ -18,7 +17,7 @@
 
 ## AI 연결 및 토큰 절감
 
-WhyNode는 요청마다 해당 노드에 필요한 맥락만 트리에서 골라 보냅니다(`SPEC.md` 6.1 참고). 이 맥락 자체는 매우 가볍기 때문에, CLI가 기본으로 붙이는 시스템 프롬프트나 도구 선언, 전역 규칙이 그대로 실리면 토큰 사용량이 불필요하게 커집니다. 아래 설정은 이러한 오버헤드를 제거하기 위한 구성입니다. 인자를 수정한 경우에는 `STATUS.md`의 실측 테스트로 토큰 사용량을 다시 확인해 주세요.
+WhyNode는 요청마다 해당 노드에 필요한 맥락만 트리에서 골라 보냅니다(`SPEC.md` 6.1 참고). 이 맥락 자체는 매우 가볍기 때문에, CLI가 기본으로 붙이는 시스템 프롬프트나 도구 선언, 전역 규칙이 그대로 실리면 토큰 사용량이 불필요하게 커집니다. 아래 설정은 이러한 오버헤드를 제거하기 위한 구성입니다.
 
 | 연결 방식 | 설정 | 역할 | 실측 효과 |
 | :--- | :--- | :--- | :--- |
@@ -35,10 +34,9 @@ WhyNode는 요청마다 해당 노드에 필요한 맥락만 트리에서 골라
 
 ## 빌드 및 실행 (macOS)
 
-시스템 기본 `xcode-select` 설정을 건드리지 않고, 명령마다 `DEVELOPER_DIR`로 Xcode 버전을 지정해 빌드합니다.
-
 ```zsh
-export DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer
+# (선택) Xcode가 여러 개 설치된 경우 시스템 기본 설정을 바꾸지 않고 버전 지정
+# export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 
 # 코어 단위 테스트
 (cd Packages/WhyNodeCore && swift test)
