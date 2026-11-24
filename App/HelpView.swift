@@ -21,7 +21,7 @@ struct HelpView: View {
             .onAppear { scroll(proxy) }
             .onChange(of: settings.helpSection) { scroll(proxy) }
         }
-        .frame(minWidth: 520, idealWidth: 620, minHeight: 480, idealHeight: 640)
+        .frame(minWidth: 560, idealWidth: 780, minHeight: 480, idealHeight: 680)
     }
 
     private func scroll(_ proxy: ScrollViewProxy) {
@@ -37,8 +37,7 @@ struct HelpContent: View {
         VStack(alignment: .leading, spacing: 22) {
             section(.start, "Getting Started", systemImage: "sparkles",
                     "Create a new project and type any topic or question in the first node. WhyNode writes a short answer and suggests follow-up questions below the card. New projects are saved to your projects folder right away and keep saving automatically.")
-            section(.connect, "Connecting AI", systemImage: "link",
-                    "Choose a provider and connection in Settings (⌘,), then pass the connection test. With My CLI, WhyNode uses the subscription of an official CLI signed in on this Mac. Paste its install command into Terminal, run it once in a new Terminal window to sign in, then press Check Again in Settings.\n\nClaude: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude`.\nGemini: `curl -fsSL https://antigravity.google/cli/install.sh | bash`, then run `agy`.\n\nWith API Key, paste a key from the provider's console instead. It's stored only in this device's Keychain.")
+            connect
             section(.branching, "Branching Out", systemImage: "arrow.triangle.branch",
                     "Click a suggestion chip to grow a new node from it. If none fits, use Ask Your Own to type your own question, or 3 Other Questions for fresh ideas (up to 12 unused questions). Regenerate Answer at the bottom of a card asks for a new answer. Dashed lines link related nodes in different branches; Find Links in the toolbar asks the AI to look over the whole map once and add the ones it missed.")
             section(.canvas, "Canvas", systemImage: "hand.draw",
@@ -49,8 +48,34 @@ struct HelpContent: View {
                     "The bar at the bottom left shows a status dot (green: ready, orange: answering, gray: not connected), the model in use, and the project's total tokens. Click it for this session's totals and the last request. Undo and deleting are paused while an answer is on its way, because a request cut off midway still uses tokens that can't be counted.")
             shortcuts.id(HelpSection.shortcuts)
         }
-        .padding(28)
-        .frame(maxWidth: 620, alignment: .leading)
+        .padding(.horizontal, 32)
+        .padding(.vertical, 28)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    /// AI 연결: 설명 사이에 회사별 설치 명령과 복사 버튼을 둔다.
+    private var connect: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Connecting AI", systemImage: "link")
+                .font(.title3.weight(.semibold))
+            Text("Choose a provider and connection in Settings (⌘,), then pass the connection test. With My CLI, WhyNode uses the subscription of an official CLI signed in on this Mac. Paste its install command into Terminal, run it once in a new Terminal window to sign in, then press Check Again in Settings.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+            ForEach(ProviderKind.allCases.filter(\.supportsCLI)) { provider in
+                if let command = provider.cliInstallCommand {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(verbatim: provider.cliDisplayName)
+                            .font(.callout.weight(.medium))
+                        CopyableCommand(command: command)
+                    }
+                }
+            }
+            Text("With API Key, paste a key from the provider's console instead. It's stored only in this device's Keychain.")
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .textSelection(.enabled)
+        .id(HelpSection.connect)
     }
 
     private func section(_ id: HelpSection, _ title: LocalizedStringKey, systemImage: String, _ body: LocalizedStringKey) -> some View {
@@ -119,5 +144,37 @@ struct HelpCommands: Commands {
     private func open(_ section: HelpSection) {
         settings.helpSection = section
         openWindow(id: HelpView.windowId)
+    }
+}
+
+/// 터미널 명령 한 줄과 복사 버튼. 도움말과 설정 화면(CLI를 못 찾았을 때)이 같이 쓴다.
+struct CopyableCommand: View {
+    let command: String
+    @State private var copied = false
+
+    var body: some View {
+        HStack {
+            Text(verbatim: command)
+                .font(.callout.monospaced())
+                .textSelection(.enabled)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 8)
+            #if os(macOS)
+            Button(copied ? "Copied" : "Copy") {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(command, forType: .string)
+                copied = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    copied = false
+                }
+            }
+            .controlSize(.small)
+            #endif
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
     }
 }

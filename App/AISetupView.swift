@@ -215,23 +215,7 @@ struct AISetupView: View {
             if let command = provider.cliInstallCommand {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("1. Paste this into Terminal to install it.")
-                    HStack {
-                        Text(verbatim: command)
-                            .font(.callout.monospaced())
-                            .textSelection(.enabled)
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer(minLength: 8)
-                        #if os(macOS)
-                        Button("Copy") {
-                            NSPasteboard.general.clearContents()
-                            NSPasteboard.general.setString(command, forType: .string)
-                        }
-                        #endif
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 5)
-                    .background(Color.secondary.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
+                    CopyableCommand(command: command)
                     Text("2. Open a new Terminal window, run \(provider.cliTool), and sign in once.")
                     Text("3. Come back and press Check Again.")
                 }

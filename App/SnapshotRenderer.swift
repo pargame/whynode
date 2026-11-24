@@ -22,7 +22,7 @@ enum SnapshotRenderer {
                 renderStylePanel(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("style-\(name).png"))
                 if name == "light" {
                     let settings = SettingsStore()
-                    write(HelpContent().environment(\.locale, settings.language.locale).frame(width: 620).background(Theme.canvas), to: directory.appendingPathComponent("help.png"))
+                    write(HelpContent().environment(\.locale, settings.language.locale).frame(width: 780).background(Theme.canvas), to: directory.appendingPathComponent("help.png"))
                 }
             }
         }
