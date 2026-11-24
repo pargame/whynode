@@ -7,7 +7,7 @@
 ```text
 App (SwiftUI 문서 앱)
 ├ WhyNodeApp        시작 화면 창 + DocumentGroup + 보기 메뉴(글자 크기)
-├ LauncherView      새 프로젝트 · 열기 · 최근 · v1 가져오기
+├ LauncherView      새 프로젝트 · 열기 · v1 가져오기, 저장 위치 프로젝트 카드 격자(ProjectEntry · ProjectCard)
 ├ MapScreen         캔버스 · 추가 질문 칩 · 메뉴 · 제스처 · 시뮬레이션 제어
 ├ CanvasModel       카메라 · 끌기 · 핀치 · 시뮬레이션 상태, 노드 층 · 선 층
 ├ CanvasParts       애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 · ⌫ 삭제 키 (macOS)
@@ -23,7 +23,7 @@ App (SwiftUI 문서 앱)
 └ SnapshotRenderer  디버그용 화면 PNG 렌더
 
 WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
-├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3 이전 (SPEC 7)
+├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3 이전 (SPEC 7), 시작 화면용 요약(ProjectPreview)
 ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
 ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
 ├ V1Import          v1 파일 변환 (SPEC 7.7)
@@ -61,7 +61,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
-| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>`(언어는 `defaults write com.pargame.whynode app.language ko|en`) → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음). `nodes-large-*`는 글자 1.5배, 맨 오른쪽 노드는 호버 빛 |
+| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>`(언어는 `defaults write com.pargame.whynode app.language ko|en`) → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음). `nodes-large-*`는 글자 1.5배, 맨 오른쪽 노드는 호버 빛, `cards-*`는 시작 화면 프로젝트 카드 |
 | 앱 실행 | `open WhyNode.app` (빌드 결과 바로가기). 이미 켜져 있으면 ⌘Q 후 다시 열어야 새 빌드가 뜸 |
 
 모든 빌드 명령에는 `DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer`를 붙입니다. 이 Xcode는 다른 작업(언리얼)과 공유하므로 `xcode-select`는 바꾸지 않습니다.
@@ -91,7 +91,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
+1. **앱 화면 실사용 확인**: 시작 화면 프로젝트 카드(저장 위치 바꾸면 목록이 바뀌는지), 도구 막대 `프로젝트` 버튼으로 돌아가기. 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세** (SPEC은 목표 설계, 아래는 아직 코드에 없음)

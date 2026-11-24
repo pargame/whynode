@@ -17,6 +17,7 @@ enum SnapshotRenderer {
                 // 글자를 키워도 노드 크기는 그대로이고 생략(…)만 늘어나는지 본다.
                 render(scheme: name == "dark" ? .dark : .light, textScale: 1.5, to: directory.appendingPathComponent("nodes-large-\(name).png"))
                 renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
+                renderCards(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("cards-\(name).png"))
             }
         }
         exit(0)
@@ -27,6 +28,23 @@ enum SnapshotRenderer {
         let content = HStack(alignment: .bottom, spacing: 24) {
             PhysicsControl(settings: .constant(.default), isRunning: false, onToggle: {})
             PhysicsControl(settings: .constant(.default), isRunning: false, onToggle: {}, keepsOpen: true)
+        }
+        .padding(32)
+        .background(Theme.canvas)
+        .environment(\.colorScheme, scheme)
+        write(content, to: url)
+    }
+
+    /// 시작 화면 프로젝트 카드
+    private static func renderCards(scheme: ColorScheme, to url: URL) {
+        let folder = URL(fileURLWithPath: "/tmp", isDirectory: true)
+        let samples = [
+            ProjectEntry(url: folder.appendingPathComponent("레이트레이싱.whynode"), preview: ProjectPreview(topic: "레이트레이싱", nodeCount: 12, updatedAt: nil), modified: Date().addingTimeInterval(-3600)),
+            ProjectEntry(url: folder.appendingPathComponent("quantum mechanics.whynode"), preview: ProjectPreview(topic: "quantum mechanics", nodeCount: 4, updatedAt: nil), modified: Date().addingTimeInterval(-86400 * 3)),
+            ProjectEntry(url: folder.appendingPathComponent("새 프로젝트.whynode"), preview: ProjectPreview(topic: "", nodeCount: 1, updatedAt: nil), modified: Date()),
+        ]
+        let content = HStack(spacing: 14) {
+            ForEach(samples) { ProjectCard(project: $0) {}.frame(width: 200) }
         }
         .padding(32)
         .background(Theme.canvas)

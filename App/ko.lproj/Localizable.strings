@@ -7,8 +7,12 @@
 "Import v1 File" = "v1 파일 가져오기";
 "AI is not connected" = "AI가 연결되지 않았습니다";
 "Settings" = "설정";
-"Recent Projects" = "최근 프로젝트";
-"No Recent Projects" = "최근 프로젝트가 없습니다";
+"No Projects" = "프로젝트가 없습니다";
+"Refresh" = "새로고침";
+"Show in Finder" = "Finder에서 보기";
+"No topic yet" = "주제 없음";
+"^[%lld node](inflect: true)" = "노드 %lld개";
+"Back to Projects" = "프로젝트 목록으로";
 "Create a new project to get started." = "새 프로젝트를 만들어 시작하세요.";
 "Couldn't Open" = "열 수 없습니다";
 "OK" = "확인";

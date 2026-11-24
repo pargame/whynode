@@ -132,6 +132,34 @@ public enum WhyNodeCodec {
     }
 }
 
+/// 시작 화면에 보여 줄 프로젝트 요약. 전체를 디코딩하지 않고 필요한 값만 읽는다.
+public struct ProjectPreview: Equatable, Sendable {
+    /// 루트 노드의 질문(주제). 아직 입력하지 않았으면 빈 문자열.
+    public var topic: String
+    public var nodeCount: Int
+    public var updatedAt: Date?
+
+    public init(topic: String, nodeCount: Int, updatedAt: Date?) {
+        self.topic = topic
+        self.nodeCount = nodeCount
+        self.updatedAt = updatedAt
+    }
+}
+
+extension WhyNodeCodec {
+    /// WhyNode 문서가 아니면 nil. 무결성 검사 · 복구는 하지 않는다.
+    public static func preview(_ data: Data) -> ProjectPreview? {
+        guard let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              object["schemaVersion"] is Int,
+              let nodes = object["nodes"] as? [[String: Any]]
+        else { return nil }
+        let rootId = object["rootId"] as? String
+        let root = nodes.first { $0["id"] as? String == rootId }
+        let updated = ((object["project"] as? [String: Any])?["updatedAt"] as? String).flatMap(Timestamp.date)
+        return ProjectPreview(topic: root?["question"] as? String ?? "", nodeCount: nodes.count, updatedAt: updated)
+    }
+}
+
 /// `additionalProperties: false`와 필수 필드 규칙을 검사한다 (SPEC 7.1).
 enum SchemaGuard {
     static let file: Set<String> = ["schemaVersion", "project", "rootId", "nodes"]

@@ -2,14 +2,14 @@ import SwiftUI
 import UniformTypeIdentifiers
 import WhyNodeCore
 
-/// WhyNode 시작 화면: 새 프로젝트 · 프로젝트 열기 · 최근 프로젝트 · v1 가져오기 (SPEC 2.1)
+/// WhyNode 시작 화면: 새 프로젝트 · 프로젝트 열기 · v1 가져오기, 저장 위치의 프로젝트 목록 (SPEC 2.1)
 struct LauncherView: View {
     @Environment(\.openDocument) private var openDocument
     @Environment(\.dismissWindow) private var dismissWindow
     @Environment(\.openSettings) private var openSettings
     @Environment(SettingsStore.self) private var settings
 
-    @State private var recent: [URL] = []
+    @State private var projects: [ProjectEntry] = []
     @State private var importing: ImportKind?
     @State private var errorMessage: String?
     @State private var showOnboarding = false
@@ -52,37 +52,12 @@ struct LauncherView: View {
 
             Divider()
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Recent Projects")
-                    .font(.headline)
-                    .padding(.horizontal, 12)
-                if recent.isEmpty {
-                    ContentUnavailableView("No Recent Projects", systemImage: "clock", description: Text("Create a new project to get started."))
-                } else {
-                    List(recent, id: \.self) { url in
-                        Button { open(url) } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(url.deletingPathExtension().lastPathComponent)
-                                Text(url.deletingLastPathComponent().path(percentEncoded: false))
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                    .lineLimit(1)
-                                    .truncationMode(.middle)
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                    }
-                    .listStyle(.plain)
-                }
-            }
-            .padding(.vertical, 24)
-            .frame(minWidth: 320, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            projectBrowser
+                .frame(minWidth: 480, maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .frame(minWidth: 680, minHeight: 420)
+        .frame(minWidth: 860, minHeight: 520)
+        .task(id: settings.projectFolder) { await loadProjects() }
         .onAppear {
-            loadRecent()
             // 첫 실행에는 AI 연결부터 묻는다. 이후에는 저장된 설정을 그대로 쓴다.
             showOnboarding = !settings.isConfigured
             settings.warmUp()
@@ -129,10 +104,54 @@ struct LauncherView: View {
         }
     }
 
-    private func loadRecent() {
-        #if os(macOS)
-        recent = NSDocumentController.shared.recentDocumentURLs.filter { $0.pathExtension == "whynode" }
-        #endif
+    // 프로젝트 목록
+
+    /// 저장 위치의 프로젝트를 Finder처럼 카드로 보여 준다. 카드마다 첫 노드의 주제와 노드 수 · 수정 시각을 적는다.
+    private var projectBrowser: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Projects").font(.headline)
+                    Text(verbatim: settings.projectFolder.path(percentEncoded: false))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                Spacer()
+                Button { Task { await loadProjects() } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                    .labelStyle(.iconOnly)
+                    .help("Refresh")
+                Button { NSWorkspace.shared.open(settings.projectFolder) } label: { Label("Show in Finder", systemImage: "folder") }
+                    .labelStyle(.iconOnly)
+                    .help("Show in Finder")
+            }
+            .padding(.horizontal, 24)
+
+            if projects.isEmpty {
+                ContentUnavailableView("No Projects", systemImage: "square.grid.2x2", description: Text("Create a new project to get started."))
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 170, maximum: 240), spacing: 14)], spacing: 14) {
+                        ForEach(projects) { project in
+                            ProjectCard(project: project) { open(project.url) }
+                                .contextMenu {
+                                    Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
+                                }
+                        }
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.bottom, 24)
+                }
+            }
+        }
+        .padding(.top, 24)
+    }
+
+    /// 파일을 읽는 일은 화면 밖에서 하고, 최근에 고친 순으로 놓는다.
+    private func loadProjects() async {
+        let folder = settings.projectFolder
+        projects = await Task.detached { ProjectEntry.scan(folder) }.value
     }
 
     private func open(_ url: URL) {
@@ -142,7 +161,7 @@ struct LauncherView: View {
                 dismissWindow(id: LauncherView.windowId)
             } catch {
                 errorMessage = error.localizedDescription
-                loadRecent()
+                await loadProjects()
             }
         }
     }
@@ -166,6 +185,72 @@ struct LauncherView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+}
+
+/// 저장 위치에 있는 프로젝트 파일 하나
+struct ProjectEntry: Identifiable, Sendable {
+    let url: URL
+    let preview: ProjectPreview
+    let modified: Date
+
+    var id: URL { url }
+    var name: String { url.deletingPathExtension().lastPathComponent }
+
+    nonisolated static func scan(_ folder: URL) -> [ProjectEntry] {
+        let files = (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: [.contentModificationDateKey], options: [.skipsHiddenFiles])) ?? []
+        return files
+            .filter { $0.pathExtension == "whynode" }
+            .compactMap { url in
+                guard let data = try? Data(contentsOf: url), let preview = WhyNodeCodec.preview(data) else { return nil }
+                let modified = (try? url.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate) ?? .distantPast
+                return ProjectEntry(url: url, preview: preview, modified: modified)
+            }
+            .sorted { $0.modified > $1.modified }
+    }
+}
+
+/// 프로젝트 카드: 첫 노드의 주제를 크게, 파일 이름과 노드 수 · 수정 시각을 작게 보여 준다.
+struct ProjectCard: View {
+    let project: ProjectEntry
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .font(.title2)
+                    .foregroundStyle(.blue)
+                Group {
+                    if project.preview.topic.isEmpty {
+                        Text("No topic yet").foregroundStyle(.secondary)
+                    } else {
+                        Text(verbatim: project.preview.topic)
+                    }
+                }
+                .font(.headline)
+                .lineLimit(3)
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+                // 파일 이름은 주제를 따르므로, 사용자가 다르게 바꾼 경우에만 보여 준다.
+                if project.name != ProjectFiles.sanitized(project.preview.topic) {
+                    Text(verbatim: project.name)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                (Text("^[\(project.preview.nodeCount) node](inflect: true)") + Text(verbatim: " · ") + Text(project.modified, format: .relative(presentation: .named)))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .lineLimit(1)
+            }
+            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+            .background(Theme.surface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.separator))
+            .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        }
+        .buttonStyle(.plain)
     }
 }
 

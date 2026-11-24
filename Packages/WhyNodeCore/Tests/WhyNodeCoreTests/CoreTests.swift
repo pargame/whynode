@@ -53,6 +53,17 @@ struct CodecTests {
         #expect(throws: CodecError.invalidSchemaVersion(0)) { try WhyNodeCodec.decode(old) }
     }
 
+    @Test func 시작_화면_요약은_루트_주제와_노드_수를_읽는다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("레이트레이싱", now: t0)
+        _ = map.addCustomChild(of: map.rootId, question: "BVH는?", now: t0)
+        let preview = try #require(WhyNodeCodec.preview(WhyNodeCodec.encode(map.file)))
+        #expect(preview.topic == "레이트레이싱")
+        #expect(preview.nodeCount == 2)
+        #expect(preview.updatedAt == map.file.project.updatedAt)
+        #expect(WhyNodeCodec.preview(Data("{}".utf8)) == nil)
+    }
+
     @Test func v2_문서는_글자_크기를_기본값으로_채워_연다() throws {
         var map = MindMap.new(now: t0)
         map.setRootQuestion("주제", now: t0)

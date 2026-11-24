@@ -8,6 +8,9 @@ struct MapScreen: View {
     @ObservedObject var document: WhyNodeDocument
     @Environment(\.undoManager) private var undoManager
     @Environment(SettingsStore.self) private var settings
+    #if os(macOS)
+    @Environment(\.openWindow) private var openWindow
+    #endif
 
     @State private var ai = AIController()
     @State private var canvas = CanvasModel()
@@ -547,6 +550,12 @@ struct MapScreen: View {
 
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
+        #if os(macOS)
+        ToolbarItem(placement: .navigation) {
+            Button { backToProjects() } label: { Label("Projects", systemImage: "square.grid.2x2") }
+                .help("Back to Projects")
+        }
+        #endif
         ToolbarItemGroup {
             Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("Zoom Out", systemImage: "minus.magnifyingglass") }
             Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("Zoom In", systemImage: "plus.magnifyingglass") }
@@ -558,6 +567,15 @@ struct MapScreen: View {
             Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
         }
     }
+
+    #if os(macOS)
+    /// 프로젝트 선택 화면으로 돌아간다. 문서는 자동 저장되어 있으므로 이 창을 닫는다.
+    private func backToProjects() {
+        finishPhysics()
+        openWindow(id: LauncherView.windowId)
+        canvas.window?.performClose(nil)
+    }
+    #endif
 
     private func updateProvider() {
         do {
