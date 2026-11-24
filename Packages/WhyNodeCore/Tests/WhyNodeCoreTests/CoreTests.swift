@@ -14,11 +14,6 @@ private func unwrap<T>(_ value: T?, sourceLocation: SourceLocation = #_sourceLoc
     try #require(value, sourceLocation: sourceLocation)
 }
 
-private func fixture(_ name: String) throws -> Data {
-    let url = try #require(Bundle.module.url(forResource: name, withExtension: "json", subdirectory: "Fixtures"))
-    return try Data(contentsOf: url)
-}
-
 @Suite("직렬화")
 struct CodecTests {
     @Test func 왕복_저장하면_같은_문서가_나온다() throws {
@@ -346,31 +341,5 @@ struct ValidationTests {
         #expect(throws: ValidationError.emptyField("answer")) {
             try ResponseValidator.validate(AnswerResponse(answer: " ", summary: "s", suggestions: []), for: map.rootId, in: map)
         }
-    }
-}
-
-@Suite("v1 가져오기")
-struct V1ImportTests {
-    @Test func 레이트레이싱_v1_파일을_변환한다() throws {
-        let (map, title) = try V1Import.convert(fixture("v1-raytracing"))
-        #expect(title == "레이트레이싱")
-        #expect(map.nodes.count == 3)
-        #expect(map.root.question == "레이트레이싱")
-        #expect(map.root.status == .error)
-        #expect(map.root.error == V1Import.missingAnswerMessage)
-        #expect(map.nodes.filter { $0.status == .done }.count == 2)
-        #expect(map.nodes.reduce(0) { $0 + $1.suggestions.count } == 3)
-        #expect(map.nodes.allSatisfy { $0.summary == nil && $0.generation == nil && !$0.collapsed })
-        #expect(map.nodes.filter { $0.id != map.rootId }.allSatisfy { $0.position.x != 0 || $0.position.y != 0 })
-
-        let roundTrip = try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file))
-        #expect(roundTrip == map.file)
-        let order = map.nodes.map(\.question)
-        #expect(order.first == "레이트레이싱")
-    }
-
-    @Test func v1이_아니면_거부한다() throws {
-        let v2 = try WhyNodeCodec.encode(MindMap.new(now: t0).file)
-        #expect(throws: V1ImportError.notV1) { try V1Import.convert(v2) }
     }
 }

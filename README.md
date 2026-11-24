@@ -6,7 +6,7 @@
 
 | 경로 | 내용 |
 | :--- | :--- |
-| `Packages/WhyNodeCore` | 노드 모델 · `.whynode` 직렬화 · 무결성 복구 · v1 가져오기 · AI 맥락 패키지 · 응답 검증 · 답변 서식 · 프로바이더(API · CLI · agy 상시 연결) · 시뮬레이션 배치 |
+| `Packages/WhyNodeCore` | 노드 모델 · `.whynode` 직렬화 · 무결성 복구 · AI 맥락 패키지 · 응답 검증 · 답변 서식 · 프로바이더(API · CLI · agy 상시 연결) · 시뮬레이션 배치 |
 | `App` | SwiftUI 문서 앱 (`DocumentGroup`) |
 | `project.yml` | XcodeGen 프로젝트 정의. `WhyNode.xcodeproj`는 생성물이라 커밋하지 않습니다. |
 

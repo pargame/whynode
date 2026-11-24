@@ -4,7 +4,6 @@
 "A knowledge mind map that grows as you follow your questions" = "질문을 쫓아가며 넓히는 지식 마인드맵";
 "New Project" = "새 프로젝트";
 "Open Project" = "프로젝트 열기";
-"Import v1 File" = "v1 파일 가져오기";
 "AI is not connected" = "AI가 연결되지 않았습니다";
 "Settings" = "설정";
 "No Projects" = "프로젝트가 없습니다";
@@ -15,6 +14,10 @@
 "Back to Projects" = "프로젝트 목록으로";
 "Create a new project to get started." = "새 프로젝트를 만들어 시작하세요.";
 "Couldn't Open" = "열 수 없습니다";
+"Couldn't Create" = "만들 수 없습니다";
+"Couldn't Delete" = "삭제할 수 없습니다";
+"Close the project before deleting it." = "프로젝트를 닫은 뒤 삭제해 주세요.";
+"Move to Trash" = "휴지통으로 이동";
 "OK" = "확인";
 "Cancel" = "취소";
 

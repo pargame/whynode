@@ -7,7 +7,7 @@
 ```text
 App (SwiftUI 문서 앱)
 ├ WhyNodeApp        시작 화면 창 + DocumentGroup + 보기 메뉴(글자 크기)
-├ LauncherView      새 프로젝트 · 열기 · v1 가져오기, 저장 위치 프로젝트 카드 격자(ProjectEntry · ProjectCard)
+├ LauncherView      새 프로젝트 · 열기, 저장 위치 프로젝트 카드 격자(ProjectEntry · ProjectCard, 휴지통으로 이동)
 ├ MapScreen         캔버스 · 추가 질문 칩 · 메뉴 · 제스처 · 시뮬레이션 제어
 ├ CanvasModel       카메라 · 끌기 · 핀치 · 시뮬레이션 상태, 노드 층 · 선 층
 ├ CanvasParts       애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 · ⌫ 삭제 키 (macOS)
@@ -26,7 +26,6 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 ├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3 이전 (SPEC 7), 시작 화면용 요약(ProjectPreview)
 ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
 ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
-├ V1Import          v1 파일 변환 (SPEC 7.7)
 ├ Layout            새 노드 초기 자리 (부채꼴)
 ├ Physics           시뮬레이션 · 조절값 (SPEC 2.6)
 ├ Context           AI 맥락 패키지 (SPEC 6.1)
@@ -48,7 +47,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 * **새 노드 자동 정리**: `MapScreen.arrange(around:)`가 `ForceSimulation(movable:alpha: 0.6)`으로 새 노드 · 형제 · 형제의 자식만 움직이는 부분 계산을 돌립니다(`CanvasModel.isSimulating`은 true, 버튼 상태인 `isRunning`은 false). 끝나면 `WhyNodeDocument.applyWithoutUndo`로 `applyLayout`(고정 노드 제외)을 반영하고, 창의 `NSDocument.updateChangeCount`로 변경 표시만 합니다(`WindowReader` → `CanvasModel.window`). 정리 중 노드 수가 줄면(⌘Z · 삭제) 결과 없이 멈춥니다. 선은 버튼 시뮬레이션에서만 `Canvas`로 그려 자동 정리 중 흐림 · 빛이 유지됩니다. 버튼 시뮬레이션 중이면 새 노드가 그 계산에 합류합니다.
 * **호버 빛**: `CanvasModel.hoveredId`는 애니메이션 없이 바꾸고, `NodeBubble.isHighlighted`(테두리 안쪽 번짐) · `EdgeItem.highlighted`(선 번짐)를 조건부 뷰 + `.transition(.opacity)` + `.animation(Theme.glowAnimation, value:)`로 빛에만 애니메이션을 겁니다. 빛 뷰는 강조될 때만 만들어 흐림(blur) 비용을 그 노드 · 선에만 씁니다.
 * **실행 취소와 AI 요청**: AI 답변도 Undo 단계입니다. 되돌린 결과에 진행 중 요청(`WhyNodeDocument.inFlight`)이 없는 대기 노드가 생기면 `interruptPending`으로 "중단됨" 오류 상태로 바꿔 다시 시도할 수 있게 합니다.
-* **새 프로젝트 선저장**: `ProjectCreator`가 항상 `ProjectFiles.create`로 저장 위치(`SettingsStore.projectFolder`, 기본 `~/Documents/WhyNode`, 설정에서 변경 · `project.folder`)에 `새 프로젝트.whynode`를 먼저 쓴 뒤 `openDocument(at:)`로 엽니다(이름 없는 문서 경로 없음). 시작 화면 · v1 가져오기 · 파일 > 새 프로젝트(⌘N, `NewProjectCommands`)가 같은 경로를 씁니다. macOS 전용. 루트 주제 입력 · 수정 시 `ProjectFiles.renameToTopic`이 자동 이름(`새 프로젝트`, 이전 주제, 뒤 번호 포함)일 때만 `NSDocument.move(to:)`로 파일 이름을 주제로 바꿉니다.
+* **새 프로젝트 선저장**: `ProjectCreator`가 항상 `ProjectFiles.create`로 저장 위치(`SettingsStore.projectFolder`, 기본 `~/Documents/WhyNode`, 설정에서 변경 · `project.folder`)에 `새 프로젝트.whynode`를 먼저 쓴 뒤 `openDocument(at:)`로 엽니다(이름 없는 문서 경로 없음). 시작 화면 · 파일 > 새 프로젝트(⌘N, `NewProjectCommands`)가 같은 경로를 씁니다. macOS 전용. 루트 주제 입력 · 수정 시 `ProjectFiles.renameToTopic`이 자동 이름(`새 프로젝트`, 이전 주제, 뒤 번호 포함)일 때만 `NSDocument.move(to:)`로 파일 이름을 주제로 바꿉니다.
 * **화면 언어**: 원문은 영어 키(코드 리터럴), 번역은 `App/ko.lproj/Localizable.strings` · `Packages/WhyNodeCore/Sources/WhyNodeCore/Resources/ko.lproj/Localizable.strings`(코어는 `L(...)` = `String(localized:bundle: .module)`). 실행 취소 이름은 `WhyNodeDocument.perform(_: LocalizedStringResource)`. `SettingsStore.language`(기본 English, `app.language`)를 시작할 때 앱 도메인 `AppleLanguages`에 넣어 적용하고, 바꾸면 `relaunch()`로 다시 켭니다. 새 문구를 넣으면 ko 문자열 파일에도 같은 키(보간은 `%@` · `%lld`)를 추가합니다. 버튼 문구에는 말줄임표(…)를 쓰지 않습니다.
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값 · 글자 크기 · 저장 위치 · 언어는 UserDefaults(`ai.settings`, `physics.settings`, `text.scale`, `project.folder`, `app.language`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.

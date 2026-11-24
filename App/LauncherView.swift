@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 import WhyNodeCore
 
-/// WhyNode 시작 화면: 새 프로젝트 · 프로젝트 열기 · v1 가져오기, 저장 위치의 프로젝트 목록 (SPEC 2.1)
+/// WhyNode 시작 화면: 새 프로젝트 · 프로젝트 열기, 저장 위치의 프로젝트 목록 (SPEC 2.1)
 struct LauncherView: View {
     @Environment(\.openDocument) private var openDocument
     @Environment(\.dismissWindow) private var dismissWindow
@@ -10,13 +10,10 @@ struct LauncherView: View {
     @Environment(SettingsStore.self) private var settings
 
     @State private var projects: [ProjectEntry] = []
-    @State private var importing: ImportKind?
+    @State private var importing = false
+    @State private var errorTitle: LocalizedStringKey = "Couldn't Open"
     @State private var errorMessage: String?
     @State private var showOnboarding = false
-
-    enum ImportKind {
-        case open, v1
-    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -35,8 +32,7 @@ struct LauncherView: View {
                 action("New Project", systemImage: "plus.circle.fill", prominent: true) {
                     create(.new(), name: ProjectFiles.untitledName)
                 }
-                action("Open Project", systemImage: "folder") { importing = .open }
-                action("Import v1 File", systemImage: "square.and.arrow.down") { importing = .v1 }
+                action("Open Project", systemImage: "folder") { importing = true }
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
                     Label(settings.ai?.summary ?? String(localized: "AI is not connected"), systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
@@ -67,10 +63,13 @@ struct LauncherView: View {
                 .environment(settings)
                 .interactiveDismissDisabled()
         }
-        .fileImporter(isPresented: importerBinding, allowedContentTypes: importing == .v1 ? [.json] : [.whynode]) { result in
-            handleImport(result)
+        .fileImporter(isPresented: $importing, allowedContentTypes: [.whynode]) { result in
+            switch result {
+            case .success(let url): open(url)
+            case .failure(let error): show("Couldn't Open", error.localizedDescription)
+            }
         }
-        .alert("Couldn't Open", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+        .alert(errorTitle, isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
             Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
@@ -88,8 +87,9 @@ struct LauncherView: View {
         .buttonStyle(prominent ? AnyPrimitiveButtonStyle(.borderedProminent) : AnyPrimitiveButtonStyle(.bordered))
     }
 
-    private var importerBinding: Binding<Bool> {
-        Binding(get: { importing != nil }, set: { if !$0 { importing = nil } })
+    private func show(_ title: LocalizedStringKey, _ message: String) {
+        errorTitle = title
+        errorMessage = message
     }
 
     /// 저장 위치에 파일을 먼저 만들어 연다(선저장).
@@ -99,7 +99,7 @@ struct LauncherView: View {
                 try await ProjectCreator(settings: settings, openDocument: openDocument).create(map, name: name)
                 dismissWindow(id: LauncherView.windowId)
             } catch {
-                errorMessage = error.localizedDescription
+                show("Couldn't Create", error.localizedDescription)
             }
         }
     }
@@ -137,6 +137,8 @@ struct LauncherView: View {
                             ProjectCard(project: project) { open(project.url) }
                                 .contextMenu {
                                     Button("Show in Finder") { NSWorkspace.shared.activateFileViewerSelecting([project.url]) }
+                                    Divider()
+                                    Button("Move to Trash", role: .destructive) { trash(project) }
                                 }
                         }
                     }
@@ -146,6 +148,21 @@ struct LauncherView: View {
             }
         }
         .padding(.top, 24)
+    }
+
+    /// 프로젝트 파일을 휴지통으로 옮긴다. 휴지통에서 되살릴 수 있어 따로 묻지 않는다. 열려 있는 프로젝트는 먼저 닫게 한다.
+    private func trash(_ project: ProjectEntry) {
+        let target = project.url.standardizedFileURL
+        if NSDocumentController.shared.documents.contains(where: { $0.fileURL?.standardizedFileURL == target }) {
+            show("Couldn't Delete", String(localized: "Close the project before deleting it."))
+            return
+        }
+        do {
+            try FileManager.default.trashItem(at: project.url, resultingItemURL: nil)
+            projects.removeAll { $0.id == project.id }
+        } catch {
+            show("Couldn't Delete", error.localizedDescription)
+        }
     }
 
     /// 파일을 읽는 일은 화면 밖에서 하고, 최근에 고친 순으로 놓는다.
@@ -160,30 +177,9 @@ struct LauncherView: View {
                 try await openDocument(at: url)
                 dismissWindow(id: LauncherView.windowId)
             } catch {
-                errorMessage = error.localizedDescription
+                show("Couldn't Open", error.localizedDescription)
                 await loadProjects()
             }
-        }
-    }
-
-    private func handleImport(_ result: Result<URL, Error>) {
-        let kind = importing
-        importing = nil
-        do {
-            let url = try result.get()
-            switch kind {
-            case .open:
-                open(url)
-            case .v1:
-                let accessing = url.startAccessingSecurityScopedResource()
-                defer { if accessing { url.stopAccessingSecurityScopedResource() } }
-                let (map, _) = try V1Import.convert(Data(contentsOf: url))
-                create(map, name: map.root.question)
-            case nil:
-                break
-            }
-        } catch {
-            errorMessage = error.localizedDescription
         }
     }
 }

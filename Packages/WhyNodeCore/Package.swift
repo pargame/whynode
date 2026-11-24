@@ -12,8 +12,7 @@ let package = Package(
         .target(name: "WhyNodeCore", resources: [.process("Resources")]),
         .testTarget(
             name: "WhyNodeCoreTests",
-            dependencies: ["WhyNodeCore"],
-            resources: [.copy("Fixtures")]
+            dependencies: ["WhyNodeCore"]
         ),
     ]
 )

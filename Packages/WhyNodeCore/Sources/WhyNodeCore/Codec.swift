@@ -15,7 +15,7 @@ public enum CodecError: Error, Equatable, LocalizedError {
         case .unsupportedSchemaVersion(let version):
             L("This document is from a newer version (schemaVersion \(version)). Please update the app.")
         case .missingSchemaVersion:
-            L("This document has no schemaVersion. Open v1 files with Import.")
+            L("This document has no schemaVersion.")
         case .invalidSchemaVersion(let version):
             L("Unknown schemaVersion (\(version)).")
         case .unexpectedKeys(let path, let keys):
