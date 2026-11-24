@@ -759,14 +759,19 @@ struct MapScreen: View {
         }
         #endif
         ToolbarItemGroup {
+            // 설정은 메뉴 막대 WhyNode > 설정(⌘,)으로 연다.
             Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("Zoom Out", systemImage: "minus.magnifyingglass") }
+                .help("Zoom out the canvas")
             Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("Zoom In", systemImage: "plus.magnifyingglass") }
+                .help("Zoom in the canvas")
             Button { animateCamera(scale: 1, offset: .zero) } label: { Label("Center", systemImage: "scope") }
+                .help("Back to the center at actual size")
             Button { settings.stepTextScale(-1) } label: { Label("Smaller Text", systemImage: "textformat.size.smaller") }
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
+                .help("Smaller text for all nodes (⌘-)")
             Button { settings.stepTextScale(1) } label: { Label("Larger Text", systemImage: "textformat.size.larger") }
                 .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
+                .help("Larger text for all nodes (⌘=)")
         }
     }
 

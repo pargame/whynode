@@ -15,7 +15,7 @@ final class AIController {
     /// 앱 전체 요청 관리. 화면이 나타날 때 연결한다.
     @ObservationIgnored var center: AIRequestCenter?
 
-    static var notConfigured: String { String(localized: "AI isn't connected. Connect it in Settings on the toolbar.") }
+    static var notConfigured: String { String(localized: "AI isn't connected. Connect it in WhyNode > Settings (⌘,).") }
 
     func requestAnswer(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?) {
         guard let center, let node = document.map[id], node.status == .pending,

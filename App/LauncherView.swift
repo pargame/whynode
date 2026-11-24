@@ -6,7 +6,6 @@ import WhyNodeCore
 struct LauncherView: View {
     @Environment(\.openDocument) private var openDocument
     @Environment(\.dismissWindow) private var dismissWindow
-    @Environment(\.openSettings) private var openSettings
     @Environment(SettingsStore.self) private var settings
 
     @State private var projects: [ProjectEntry] = []
@@ -35,12 +34,11 @@ struct LauncherView: View {
                 action("Open Project", systemImage: "folder") { importing = true }
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
+                    // 설정은 메뉴 막대 WhyNode > 설정(⌘,)으로 연다.
                     Label(settings.ai?.summary ?? String(localized: "AI is not connected"), systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(settings.isConfigured ? Color.secondary : Color.orange)
                         .lineLimit(2)
-                    Button("Settings") { openSettings() }
-                        .controlSize(.small)
                 }
             }
             .padding(32)

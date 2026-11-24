@@ -72,7 +72,7 @@
 "Simulation" = "시뮬레이션";
 
 /* AI 요청 */
-"AI isn't connected. Connect it in Settings on the toolbar." = "AI 연결 설정이 필요합니다. 도구 막대의 설정에서 연결해 주세요.";
+"AI isn't connected. Connect it in WhyNode > Settings (⌘,)." = "AI 연결 설정이 필요합니다. 메뉴 막대의 WhyNode > 설정(⌘,)에서 연결해 주세요.";
 "No new suggestions found." = "새로운 추가 질문을 찾지 못했습니다.";
 "Couldn't get suggestions: %@" = "추가 질문을 받지 못했습니다: %@";
 "CLI connection on iPadOS" = "iPadOS의 CLI 연동";
@@ -160,3 +160,10 @@
 "Default" = "기본";
 "Edit Node Style" = "노드 꾸미기";
 "Custom Color" = "직접 고르기";
+
+/* 도구 막대 툴팁 */
+"Zoom out the canvas" = "캔버스 축소";
+"Zoom in the canvas" = "캔버스 확대";
+"Back to the center at actual size" = "원래 크기로 가운데에 맞추기";
+"Smaller text for all nodes (⌘-)" = "모든 노드 글자 작게 (⌘-)";
+"Larger text for all nodes (⌘=)" = "모든 노드 글자 크게 (⌘=)";
