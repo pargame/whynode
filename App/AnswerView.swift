@@ -4,7 +4,6 @@ import WhyNodeCore
 /// 답변 본문을 WhyNode 서식 블록(SPEC 6.5)으로 그린다.
 struct AnswerView: View {
     let markdown: String
-    var scale: CGFloat = 1
     /// 노드의 글자 색. 없으면 기본 색
     var color: Color? = nil
 
@@ -23,7 +22,7 @@ struct AnswerView: View {
                 }
             }
         }
-        .font(.scaled(.callout, scale))
+        .font(.callout)
         .foregroundStyle(color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -34,10 +33,10 @@ struct AnswerView: View {
         for span in InlineMarkup.spans(text) {
             var piece = AttributedString(span.text)
             if span.code {
-                piece.font = .scaled(.callout, scale, design: .monospaced)
+                piece.font = .callout.monospaced()
                 piece.backgroundColor = Color.secondary.opacity(0.14)
             } else if span.bold || span.italic {
-                var font = Font.scaled(.callout, scale)
+                var font = Font.callout
                 if span.bold { font = font.bold() }
                 if span.italic { font = font.italic() }
                 piece.font = font
@@ -64,7 +63,7 @@ struct AnswerView: View {
     /// 텍스트 다이어그램은 줄 구성을 지키도록 고정폭으로 그리고, 넓으면 가로로 스크롤한다.
     private func diagram(_ rows: [String]) -> some View {
         let text = Text(verbatim: rows.joined(separator: "\n"))
-            .font(.scaled(.caption, scale, design: .monospaced))
+            .font(.caption.monospaced())
             .fixedSize()
             .padding(8)
         return ViewThatFits(in: .horizontal) {

@@ -40,9 +40,10 @@ struct CodecTests {
 
     @Test func 상위_스키마_버전은_열지_않는다() throws {
         var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
-        object["schemaVersion"] = 6
+        let newer = WhyNodeFile.currentSchemaVersion + 1
+        object["schemaVersion"] = newer
         let data = try JSONSerialization.data(withJSONObject: object)
-        #expect(throws: CodecError.unsupportedSchemaVersion(6)) { try WhyNodeCodec.decode(data) }
+        #expect(throws: CodecError.unsupportedSchemaVersion(newer)) { try WhyNodeCodec.decode(data) }
         object["schemaVersion"] = 0
         let old = try JSONSerialization.data(withJSONObject: object)
         #expect(throws: CodecError.invalidSchemaVersion(0)) { try WhyNodeCodec.decode(old) }
@@ -84,20 +85,24 @@ struct CodecTests {
         #expect(WhyNodeCodec.preview(Data("{}".utf8)) == nil)
     }
 
-    @Test func v2_문서는_글자_크기를_기본값으로_채워_연다() throws {
+    @Test func v5_이하_문서는_노드별_글자_크기를_버리고_연다() throws {
         var map = MindMap.new(now: t0)
         map.setRootQuestion("주제", now: t0)
-        var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(map.file)) as! [String: Any]
-        object["schemaVersion"] = 2
-        object["nodes"] = (object["nodes"] as! [[String: Any]]).map { node in
-            var node = node
-            node["textScale"] = nil
-            return node
+        for version in [2, 5] {
+            var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(map.file)) as! [String: Any]
+            object["schemaVersion"] = version
+            object["nodes"] = (object["nodes"] as! [[String: Any]]).map { node in
+                var node = node
+                if version >= 3 { node["textScale"] = 1.5 }
+                if version < 5 { node["sizeScale"] = nil; node["fillColor"] = nil; node["textColor"] = nil }
+                return node
+            }
+            let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
+            #expect(decoded.schemaVersion == WhyNodeFile.currentSchemaVersion)
+            #expect(decoded.nodes.map(\.question) == map.file.nodes.map(\.question))
+            let saved = String(decoding: try WhyNodeCodec.encode(decoded), as: UTF8.self)
+            #expect(!saved.contains("textScale"))
         }
-        let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
-        #expect(decoded.schemaVersion == WhyNodeFile.currentSchemaVersion)
-        #expect(decoded.nodes.allSatisfy { $0.textScale == 1 })
-        #expect(decoded.nodes.map(\.question) == map.file.nodes.map(\.question))
     }
 
     @Test func 정의되지_않은_필드와_빠진_필드를_거부한다() throws {
@@ -210,18 +215,6 @@ struct MindMapTests {
         map.deleteSubtree(a)
         answered(&map, a)
         #expect(map[a] == nil)
-    }
-
-    @Test func 노드_글자_크기는_범위_안으로_맞추고_왕복_저장된다() throws {
-        var map = MindMap.new(now: t0)
-        map.setTextScale(map.rootId, 1.234, now: t0)
-        #expect(map.root.textScale == 1.23)
-        map.setTextScale(map.rootId, 10, now: t0)
-        #expect(map.root.textScale == Node.textScaleRange.upperBound)
-        map.setTextScale(map.rootId, .nan, now: t0)
-        #expect(map.root.textScale == 1)
-        map.setTextScale(map.rootId, 1.5, now: t0)
-        #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
     }
 
     @Test func 질문을_그대로_두고_확인하면_아무것도_바꾸지_않는다() throws {

@@ -14,8 +14,6 @@ enum SnapshotRenderer {
         for (name, appearance) in [("light", NSAppearance.Name.aqua), ("dark", .darkAqua)] {
             NSAppearance(named: appearance)!.performAsCurrentDrawingAppearance {
                 render(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("nodes-\(name).png"))
-                // 글자를 키워도 노드 크기는 그대로이고 생략(…)만 늘어나는지 본다.
-                render(scheme: name == "dark" ? .dark : .light, textScale: 1.5, to: directory.appendingPathComponent("nodes-large-\(name).png"))
                 renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
                 renderCards(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("cards-\(name).png"))
                 renderStatus(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("status-\(name).png"))
@@ -64,7 +62,7 @@ enum SnapshotRenderer {
         map.setRootQuestion("레이트레이싱")
         map.setColors(map.rootId, fill: "green", text: nil)
         let content = HStack(alignment: .top, spacing: 24) {
-            NodeStylePanel(node: map.root, canToggleBranch: true, canDelete: true, onTextScale: { _ in }, onSizeScale: { _ in }, onFill: { _ in }, onText: { _ in }, onToggleBranch: {}, onReset: {}, onDelete: {})
+            NodeStylePanel(node: map.root, canToggleBranch: true, canDelete: true, onSizeScale: { _ in }, onFill: { _ in }, onText: { _ in }, onToggleBranch: {}, onReset: {}, onDelete: {})
             // 사용자 지정 색을 눌렀을 때 펼쳐지는 격자
             PaletteGrid(selected: PaletteGrid.colors[9]) { _ in }
         }
@@ -99,7 +97,7 @@ enum SnapshotRenderer {
         try? png.write(to: url)
     }
 
-    private static func render(scheme: ColorScheme, textScale: CGFloat = 1, to url: URL) {
+    private static func render(scheme: ColorScheme, to url: URL) {
         let now = Date()
         var map = MindMap.new(now: now)
         map.setRootQuestion("레이트레이싱", now: now)
@@ -132,8 +130,11 @@ enum SnapshotRenderer {
         styledMap.setColors(map.rootId, fill: "blue", text: "#B00020", now: now)
         let styled = styledMap.root
 
+        func fit(_ question: String) -> Node {
+            Node(parentId: nil, question: question, status: .done, createdAt: now, updatedAt: now)
+        }
         func bubble(_ node: Node, focused: Bool, glow: NodeGlow = .none) -> some View {
-            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, glow: glow, onRetry: {})
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, glow: glow, onRetry: {})
         }
         // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
         let content = HStack(alignment: .top, spacing: 28) {
@@ -148,6 +149,10 @@ enum SnapshotRenderer {
             bubble(map.root, focused: false, glow: .dashed)
             // 꾸민 노드: 크기 1.4, 노드 색 파랑, 글자 색 사용자 지정
             bubble(styled, focused: false)
+            // 원 안 글자 자동 맞춤: 짧은 주제 · 보통 질문 · 아주 긴 질문
+            bubble(fit("빛"), focused: false)
+            bubble(fit("광선과 물체의 충돌점은 어떻게 빠르게 찾을까?"), focused: false)
+            bubble(fit("BVH는 어떻게 만들까? 공간을 나누는 기준과 깊이는 어떻게 정하고, 동적으로 움직이는 물체가 많은 장면에서는 매 프레임 다시 만들어야 할까? 아니면 일부만 고쳐도 될까?"), focused: false)
         }
         .overlay(alignment: .top) {
             Rectangle().fill(.red.opacity(0.5)).frame(height: 1).offset(y: NodeBubble.titleCenter)

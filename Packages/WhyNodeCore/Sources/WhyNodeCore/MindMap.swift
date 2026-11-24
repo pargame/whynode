@@ -252,13 +252,6 @@ public struct MindMap: Equatable, Sendable {
         update(id, now: now) { $0.collapsed = collapsed }
     }
 
-    /// 노드 하나의 글자 크기를 바꾼다. 노드 크기는 그대로다.
-    public mutating func setTextScale(_ id: WID, _ scale: Double, now: Date = Date()) {
-        let scale = Node.clampedTextScale(scale)
-        guard let node = self[id], node.textScale != scale else { return }
-        update(id, now: now) { $0.textScale = scale }
-    }
-
     /// 노드 크기를 바꾼다. 원 · 펼친 카드가 함께 커지고, 시뮬레이션 반지름에도 반영된다.
     public mutating func setSizeScale(_ id: WID, _ scale: Double, now: Date = Date()) {
         let scale = Node.clampedSizeScale(scale)
@@ -279,11 +272,10 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
-    /// 글자 크기 · 노드 크기 · 색을 모두 기본으로 되돌린다.
+    /// 노드 크기 · 색을 모두 기본으로 되돌린다.
     public mutating func resetStyle(_ id: WID, now: Date = Date()) {
         guard let node = self[id], node.hasCustomStyle else { return }
         update(id, now: now) {
-            $0.textScale = 1
             $0.sizeScale = 1
             $0.fillColor = nil
             $0.textColor = nil

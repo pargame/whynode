@@ -16,8 +16,6 @@ struct NodeBubble: View, Equatable {
     let isSuggesting: Bool
     /// 시뮬레이션 · 끌기 중에는 그림자를 끈다. 뷰를 갈아 끼우지 않도록 값만 바꾼다.
     var isQuiet = false
-    /// 글자 크기 배율. 노드 크기는 그대로이고, 원 안에 들어가는 줄 수가 줄어 생략(…)이 늘어난다.
-    var textScale: CGFloat = 1
     /// 화면 배율. 노드는 배율만큼 커지고 작아지지만 테두리는 화면에서 같은 굵기로 보이도록 나눠 준다.
     var zoom: CGFloat = 1
     /// 호버한 노드이거나 그 이웃이면 테두리 안쪽으로 빛이 번진다. 참조선으로만 이어진 이웃은 점선 빛이다.
@@ -27,7 +25,7 @@ struct NodeBubble: View, Equatable {
     /// 위치가 바뀌는 매 프레임마다 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
     static func == (lhs: NodeBubble, rhs: NodeBubble) -> Bool {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isDimmed == rhs.isDimmed
-            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale
+            && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet
             && lhs.zoom == rhs.zoom && lhs.glow == rhs.glow
     }
 
@@ -41,7 +39,7 @@ struct NodeBubble: View, Equatable {
 
     /// 본문은 화면 배율을 모르는 하위 뷰로 두어, 확대 · 축소 중에는 테두리 · 빛만 다시 그린다.
     var body: some View {
-        NodeBubbleBody(node: node, isFocused: isFocused, isSuggesting: isSuggesting, textScale: textScale, onRetry: onRetry)
+        NodeBubbleBody(node: node, isFocused: isFocused, isSuggesting: isSuggesting, onRetry: onRetry)
             .equatable()
             .overlay(shape.stroke(Theme.border(for: node.status, focused: isFocused), lineWidth: (isFocused ? 2.5 : 1) / zoom))
             // 노드 자체는 불투명하게 두고 배경색 막을 덮어 흐리게 한다. 투명도를 낮추면 뒤의 선이 노드 위로 비친다.
@@ -80,18 +78,54 @@ private struct NodeBubbleBody: View, Equatable {
     let node: Node
     let isFocused: Bool
     let isSuggesting: Bool
-    let textScale: CGFloat
     let onRetry: () -> Void
 
     static func == (lhs: NodeBubbleBody, rhs: NodeBubbleBody) -> Bool {
-        lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isSuggesting == rhs.isSuggesting && lhs.textScale == rhs.textScale
+        lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isSuggesting == rhs.isSuggesting
     }
 
-    /// 원 안에 들어가는 질문 줄 수. 기본 크기에서 4줄 높이를 기준으로, 노드가 커지면 늘고 글자가 커지면 줄인다.
-    private var compactLineLimit: Int { max(1, Int((4 * size / textScale).rounded(.down))) }
+    /// 펼친 카드 질문의 위 여백 기준. 기준 글자 크기로 최대 4줄(노드가 크면 더)까지의 높이다.
+    private var cardLineLimit: Int { max(1, Int((4 * size).rounded(.down))) }
 
-    /// 원 안에서 보이는 질문(최대 4줄)의 높이. 펼쳐서 줄이 늘어도 이 값으로 위 여백을 정해 첫 줄이 움직이지 않는다.
-    @State private var titleHeight: CGFloat = 20
+    /// 원 안 질문은 이 높이(기준 글자 4줄) 안에 들어가는 가장 큰 크기로 그린다.
+    private var fitHeight: CGFloat { Self.lineHeight(scale: 1) * 4 * size }
+    /// 큰 것부터 차례로 맞춰 본다. 가장 작은 크기로도 넘치면 그 크기에서 줄 수를 자르고 생략(…)한다.
+    private static let fitScales: [CGFloat] = [1.8, 1.6, 1.4, 1.25, 1.1, 1.0, 0.9, 0.8]
+
+    #if os(macOS)
+    private typealias PlatformFont = NSFont
+    #else
+    private typealias PlatformFont = UIFont
+    #endif
+
+    private static func platformFont(scale: CGFloat) -> PlatformFont {
+        PlatformFont.systemFont(ofSize: Font.baseSize(.callout) * scale, weight: .medium)
+    }
+
+    private static func lineHeight(scale: CGFloat) -> CGFloat {
+        let font = platformFont(scale: scale)
+        return ceil(font.ascender - font.descender + font.leading)
+    }
+
+    /// 가장 긴 단어의 폭. 단어가 한 줄에 다 들어가지 않는 크기는 단어 중간이 끊기므로 고르지 않는다.
+    private static func longestWordWidth(_ text: String, scale: CGFloat) -> CGFloat {
+        let attributes: [NSAttributedString.Key: Any] = [.font: platformFont(scale: scale)]
+        return text.split(whereSeparator: \.isWhitespace)
+            .map { ceil((String($0) as NSString).size(withAttributes: attributes).width) }
+            .max() ?? 0
+    }
+
+    /// 단어가 끊기지 않는 크기만 남긴다. 모두 끊기면 가장 작은 크기만 쓴다.
+    private var wordSafeScales: [CGFloat] {
+        let text = node.question.isEmpty ? String(localized: "Enter a topic") : node.question
+        let width = NodeBubble.titleWidth * size
+        let safe = Self.fitScales.filter { Self.longestWordWidth(text, scale: $0) <= width }
+        return safe.isEmpty ? [Self.fitScales.last!] : safe
+    }
+
+    /// 원 안 질문과 펼친 카드 질문의 높이. 질문의 중심이 원의 중심에 오도록 위 여백을 정한다.
+    @State private var compactTitleHeight: CGFloat = 20
+    @State private var cardTitleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
     private var size: CGFloat { node.sizeScale }
@@ -101,14 +135,21 @@ private struct NodeBubbleBody: View, Equatable {
 
     var body: some View {
         VStack(spacing: 12) {
-            // 원에서는 정해진 줄 수까지만 보이고, 펼치면 질문 전체를 보여준다.
-            title(lineLimit: showsDetail ? nil : compactLineLimit)
-                .foregroundStyle(node.question.isEmpty ? AnyShapeStyle(.secondary) : textColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
-                .background {
-                    title(lineLimit: compactLineLimit)
-                        .hidden()
-                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { titleHeight = $0 }
+            // 원에서는 질문 길이에 맞춰 글자 크기를 정하고, 펼치면 기준 크기로 질문 전체를 보여준다.
+            Group {
+                if showsDetail {
+                    title(scale: 1, lineLimit: nil)
+                } else {
+                    compactTitle
+                        .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { compactTitleHeight = $0 }
                 }
+            }
+            .foregroundStyle(node.question.isEmpty ? AnyShapeStyle(.secondary) : textColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+            .background {
+                title(scale: 1, lineLimit: cardLineLimit)
+                    .hidden()
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardTitleHeight = $0 }
+            }
 
             if showsDetail {
                 detail
@@ -119,12 +160,12 @@ private struct NodeBubbleBody: View, Equatable {
             }
             if node.collapsed {
                 Label("Collapsed", systemImage: "chevron.right.circle")
-                    .font(.scaled(.caption, textScale))
+                    .font(.caption)
                     .foregroundStyle(.secondary)
             }
         }
         // 질문의 중심이 원의 중심(위에서 70pt)에 오도록 위 여백을 맞춘다. 펼쳐도 같은 여백이라 질문이 움직이지 않는다.
-        .padding(.top, max(10, NodeBubble.titleCenter * size - titleHeight / 2))
+        .padding(.top, max(10, NodeBubble.titleCenter * size - (showsDetail ? cardTitleHeight : compactTitleHeight) / 2))
         .padding(.bottom, showsDetail ? 18 : 0)
         .frame(width: (showsDetail ? NodeBubble.expandedWidth : NodeBubble.compactDiameter) * size, alignment: .top)
         .frame(minHeight: NodeBubble.compactDiameter * size, alignment: .top)
@@ -134,9 +175,23 @@ private struct NodeBubbleBody: View, Equatable {
         .clipShape(shape)
     }
 
-    private func title(lineLimit: Int?) -> some View {
+    /// 맞는 크기 중 가장 큰 것. 모두 넘치면 가장 작은 크기로 들어가는 줄 수까지만 보여준다.
+    private var compactTitle: some View {
+        let smallest = Self.fitScales.last!
+        let lines = max(1, Int((fitHeight / Self.lineHeight(scale: smallest)).rounded(.down)))
+        return ViewThatFits(in: .vertical) {
+            ForEach(wordSafeScales, id: \.self) { scale in
+                title(scale: scale, lineLimit: nil)
+            }
+            title(scale: smallest, lineLimit: lines)
+        }
+        .frame(height: fitHeight, alignment: .center)
+        .fixedSize(horizontal: false, vertical: false)
+    }
+
+    private func title(scale: CGFloat, lineLimit: Int?) -> some View {
         (node.question.isEmpty ? Text("Enter a topic") : Text(verbatim: node.question))
-            .font(.scaled(.callout, textScale, weight: .medium))
+            .font(.scaled(.callout, scale, weight: .medium))
             .multilineTextAlignment(.center)
             .lineLimit(lineLimit)
             .frame(width: NodeBubble.titleWidth * size)
@@ -149,7 +204,7 @@ private struct NodeBubbleBody: View, Equatable {
             if let answer = node.answer {
                 // 스크롤 영역은 크기를 스스로 정하지 못해 높이가 0으로 접히므로 쓰지 않는다.
                 // 분량은 답변 서식 제한(SPEC 6.5)으로 묶여 있어 카드가 무한히 길어지지 않는다.
-                AnswerView(markdown: answer, scale: textScale, color: textColor)
+                AnswerView(markdown: answer, color: textColor)
             }
             if node.status == .done {
                 // 답변이 마음에 들지 않으면 다시 받는다. 받는 동안 이전 답변은 그대로 보이고, 실패해도 남는다.
@@ -157,7 +212,7 @@ private struct NodeBubbleBody: View, Equatable {
                     Spacer()
                     Button(action: onRetry) {
                         Label("Regenerate Answer", systemImage: "arrow.clockwise")
-                            .font(.scaled(.caption, textScale))
+                            .font(.caption)
                     }
                     .buttonStyle(.borderless)
                     .foregroundStyle(.secondary)
@@ -168,7 +223,7 @@ private struct NodeBubbleBody: View, Equatable {
             }
             if node.status == .error {
                 (node.error.map { Text(verbatim: $0) } ?? Text("Error"))
-                    .font(.scaled(.caption, textScale))
+                    .font(.caption)
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)

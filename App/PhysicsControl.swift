@@ -64,10 +64,6 @@ struct PhysicsControl: View {
         VStack(alignment: .leading, spacing: 12) {
             row("Repulsion", value: $settings.repel, range: PhysicsSettings.range, step: 0.1)
             row("Tension", value: $settings.tension, range: PhysicsSettings.range, step: 0.1)
-            Text("The root stays fixed. Repulsion spreads nodes apart, and tension pulls linked nodes together.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 

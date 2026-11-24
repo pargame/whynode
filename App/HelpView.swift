@@ -41,9 +41,9 @@ struct HelpContent: View {
             section(.branching, "Branching Out", systemImage: "arrow.triangle.branch",
                     "Click a suggestion chip to grow a new node from it. If none fits, use Ask Your Own to type your own question, or 3 Other Questions for fresh ideas (up to 12 unused questions). Regenerate Answer at the bottom of a card asks for a new answer. Dashed lines link related nodes in different branches; Find Links in the toolbar asks the AI to look over the whole map once and add the ones it missed.")
             section(.canvas, "Canvas", systemImage: "hand.draw",
-                    "Drag the background, scroll with two fingers, or pinch to move and zoom. Pinching over an expanded node changes only that node's text size. Simulate in the bottom-right corner untangles overlapping nodes; open its arrow to tune repulsion and tension.")
+                    "Drag the background, scroll with two fingers, or pinch to move and zoom. Simulate in the bottom-right corner untangles overlapping nodes; open its arrow to tune repulsion and tension.")
             section(.styling, "Styling Nodes", systemImage: "paintpalette",
-                    "Right-click (or Control-click) a node to open its style panel. Text size, node size, node color, and text color change while the panel stays open. The panel also collapses a branch, resets the style, or deletes the node.")
+                    "Right-click (or Control-click) a node to open its style panel. Node size, node color, and text color change while the panel stays open. The panel also collapses a branch, resets the style, or deletes the node.")
             section(.ai, "AI and Usage", systemImage: "gauge.with.dots.needle.33percent",
                     "The bar at the bottom left shows a status dot (green: ready, orange: answering, gray: not connected), the model in use, and the project's total tokens. Click it for this session's totals and the last request. Undo and deleting are paused while an answer is on its way, because a request cut off midway still uses tokens that can't be counted.")
             shortcuts.id(HelpSection.shortcuts)
@@ -100,8 +100,6 @@ struct HelpContent: View {
                 row("⌘Z  ⌘⇧Z", "Undo and Redo")
                 row("⌫", "Delete the focused node")
                 row("Esc", "Close the style panel or an empty question input")
-                row("⌘=  ⌘-", "Larger or smaller text for all nodes")
-                row("⌘0", "Reset the focused node's text size, or the app's when it's unchanged")
                 row("⌘,", "Settings")
                 row("⌘?", "WhyNode Help")
             }

@@ -115,8 +115,6 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
     public var refs: [NodeRef]
     public var position: Position
     public var collapsed: Bool
-    /// 이 노드의 글자 크기 배율 (SPEC 7.4). 노드 크기는 그대로이고 글자만 바뀐다. 앱 전체 글자 크기 설정과 곱해 쓴다.
-    public var textScale: Double
     /// 노드 크기 배율 (SPEC 7.4). 원 지름 · 펼친 카드 폭과 시뮬레이션 반지름에 곱한다.
     public var sizeScale: Double
     /// 노드 색. nil이면 기본, 프리셋은 `NodeColor` 토큰("red" 등), 사용자 지정은 "#RRGGBB".
@@ -139,7 +137,6 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         refs: [NodeRef] = [],
         position: Position = Position(),
         collapsed: Bool = false,
-        textScale: Double = 1,
         sizeScale: Double = 1,
         fillColor: String? = nil,
         textColor: String? = nil,
@@ -158,7 +155,6 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         self.refs = refs
         self.position = position
         self.collapsed = collapsed
-        self.textScale = textScale
         self.sizeScale = sizeScale
         self.fillColor = fillColor
         self.textColor = textColor
@@ -181,7 +177,6 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
         try c.encode(refs, forKey: .refs)
         try c.encode(position, forKey: .position)
         try c.encode(collapsed, forKey: .collapsed)
-        try c.encode(textScale, forKey: .textScale)
         try c.encode(sizeScale, forKey: .sizeScale)
         try c.encode(fillColor, forKey: .fillColor)
         try c.encode(textColor, forKey: .textColor)
@@ -192,7 +187,6 @@ public struct Node: Codable, Equatable, Sendable, Identifiable {
 }
 
 extension Node {
-    public static let textScaleRange: ClosedRange<Double> = 0.6...2.5
     public static let sizeScaleRange: ClosedRange<Double> = 0.6...2.0
 
     /// 범위를 벗어나거나 수가 아닌 노드 크기를 맞추고 소수 둘째 자리로 자른다.
@@ -201,14 +195,8 @@ extension Node {
         return (min(max(value, sizeScaleRange.lowerBound), sizeScaleRange.upperBound) * 100).rounded() / 100
     }
 
-    /// 꾸밈(글자 크기 · 노드 크기 · 색)이 기본과 다른지
-    public var hasCustomStyle: Bool { textScale != 1 || sizeScale != 1 || fillColor != nil || textColor != nil }
-
-    /// 범위를 벗어나거나 수가 아닌 값을 허용 범위로 맞추고, 소수 둘째 자리로 자른다.
-    public static func clampedTextScale(_ value: Double) -> Double {
-        guard value.isFinite else { return 1 }
-        return (min(max(value, textScaleRange.lowerBound), textScaleRange.upperBound) * 100).rounded() / 100
-    }
+    /// 꾸밈(노드 크기 · 색)이 기본과 다른지
+    public var hasCustomStyle: Bool { sizeScale != 1 || fillColor != nil || textColor != nil }
 }
 
 public struct ProjectMeta: Codable, Equatable, Sendable {
@@ -228,7 +216,7 @@ public struct ProjectMeta: Codable, Equatable, Sendable {
 
 /// `.whynode` 파일의 최상위 구조 (SPEC 7.3)
 public struct WhyNodeFile: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 5
+    public static let currentSchemaVersion = 6
 
     public var schemaVersion: Int
     public var project: ProjectMeta

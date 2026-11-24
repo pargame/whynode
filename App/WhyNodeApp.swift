@@ -39,7 +39,6 @@ struct WhyNodeApp: App {
             NewProjectCommands(settings: settings)
             UndoCommands(settings: settings)
             HelpCommands(settings: settings)
-            TextSizeCommands(settings: settings)
         }
 
         // 메뉴 막대 도움말 > WhyNode 도움말 (⌘?)
@@ -74,34 +73,7 @@ struct WhyNodeApp: App {
     }
 }
 
-/// 메뉴 막대 보기 > 글자 크게 (⌘=) · 글자 작게 (⌘-) · 글자 크기 원래대로 (⌘0)
-struct TextSizeCommands: Commands {
-    let settings: SettingsStore
-    /// 포커스된 노드의 글자 크기가 바뀌어 있으면 그 노드를 되돌리는 동작
-    @FocusedValue(\.resetFocusedNodeTextScale) private var resetNode
-
-    var body: some Commands {
-        CommandGroup(after: .toolbar) {
-            // 메뉴 문구는 환경 언어를 받지 않으므로 고른 언어로 직접 옮긴다(언어가 바뀌면 다시 그려진다).
-            let _ = settings.language
-            Button(tr("Larger Text")) { settings.stepTextScale(1) }
-                .keyboardShortcut("=")
-                .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button(tr("Smaller Text")) { settings.stepTextScale(-1) }
-                .keyboardShortcut("-")
-                .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
-            // 노드를 먼저 되돌리고, 노드가 원래 크기면 앱 전체 글자 크기를 되돌린다.
-            Button(resetNode == nil ? tr("Default Text Size") : tr("Reset Node Text Size")) {
-                if let resetNode { resetNode() } else { settings.textScale = 1 }
-            }
-            .keyboardShortcut("0")
-            Divider()
-        }
-    }
-}
-
 extension FocusedValues {
-    @Entry var resetFocusedNodeTextScale: (() -> Void)?
     @Entry var documentUndo: DocumentUndoState?
 }
 

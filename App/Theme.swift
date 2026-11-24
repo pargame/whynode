@@ -63,12 +63,13 @@ enum Theme {
 }
 
 extension Font {
-    /// 글자 크기 설정(`SettingsStore.textScale`)을 반영한 시스템 글꼴. 기준 크기는 플랫폼의 텍스트 스타일 크기를 따른다.
+    /// 기준 크기에 배율을 곱한 시스템 글꼴. 원 안 질문의 자동 맞춤(`NodeBubble`)이 쓴다.
     static func scaled(_ style: Font.TextStyle, _ scale: CGFloat, weight: Font.Weight = .regular, design: Font.Design = .default) -> Font {
         .system(size: baseSize(style) * scale, weight: weight, design: design)
     }
 
-    private static func baseSize(_ style: Font.TextStyle) -> CGFloat {
+    /// 플랫폼 텍스트 스타일의 기준 크기(pt)
+    static func baseSize(_ style: Font.TextStyle) -> CGFloat {
         #if os(macOS)
         typealias PlatformFont = NSFont
         #else

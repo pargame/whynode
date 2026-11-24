@@ -9,7 +9,6 @@ public enum IntegrityIssue: Equatable, Sendable {
     case danglingRefRemoved(node: WID, target: WID)
     case danglingUsedByCleared(node: WID, suggestion: WID)
     case interruptedRequest(WID)
-    case textScaleClamped(WID)
     case sizeScaleClamped(WID)
     case invalidColorCleared(WID)
 }
@@ -93,13 +92,8 @@ public enum Integrity {
             issues.append(.interruptedRequest(file.nodes[i].id))
         }
 
-        // 5. 글자 · 노드 크기 배율은 허용 범위 안이고, 색 값은 알려진 형식이어야 한다.
+        // 5. 노드 크기 배율은 허용 범위 안이고, 색 값은 알려진 형식이어야 한다.
         for i in file.nodes.indices {
-            let clamped = Node.clampedTextScale(file.nodes[i].textScale)
-            if clamped != file.nodes[i].textScale {
-                file.nodes[i].textScale = clamped
-                issues.append(.textScaleClamped(file.nodes[i].id))
-            }
             let size = Node.clampedSizeScale(file.nodes[i].sizeScale)
             if size != file.nodes[i].sizeScale {
                 file.nodes[i].sizeScale = size

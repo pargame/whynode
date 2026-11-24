@@ -122,7 +122,6 @@ struct MapScreen: View {
             undoTitle: undoManager?.canUndo == true ? undoManager?.undoMenuItemTitle : nil,
             redoTitle: undoManager?.canRedo == true ? undoManager?.redoMenuItemTitle : nil
         ))
-        .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
     }
 
     /// 설정 · 문서 · 실행 취소 · 포커스 변화에 반응
@@ -150,9 +149,7 @@ struct MapScreen: View {
                 canvas.simulation?.sync(with: map)
             }
         }
-        // 핀치 도중 포커스가 바뀌면 제스처가 끝 신호 없이 취소될 수 있어 핀치 중 값을 비운다.
         .onChange(of: focusedId) {
-            canvas.textPinch = nil
             if composingFor != nil, composingFor != focusedId { cancelCompose() }
         }
         // 직접 질문 입력란에서 빠져나갔는데 쓴 글이 없으면 닫는다.
@@ -169,7 +166,6 @@ struct MapScreen: View {
     private func nodeStack(_ node: Node) -> some View {
         let focused = focusedId == node.id
         let isDragging = canvas.dragging?.id == node.id
-        let textScale = settings.textScale * canvas.textScale(of: node)
         return VStack(spacing: 12) {
             NodeBubble(
                 node: node,
@@ -177,7 +173,6 @@ struct MapScreen: View {
                 isDimmed: isDimmed(node.id),
                 isSuggesting: ai.suggesting.contains(node.id),
                 isQuiet: canvas.isMoving,
-                textScale: textScale,
                 zoom: canvas.effectiveScale,
                 glow: glow(of: node.id),
                 onRetry: { retry(node.id) }
@@ -191,35 +186,10 @@ struct MapScreen: View {
             .gesture(moveGesture(for: node))
 
             if focused, node.status == .done {
-                suggestionChips(for: node, textScale: textScale, zoom: canvas.effectiveScale)
+                suggestionChips(for: node, zoom: canvas.effectiveScale)
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        // 펼친 노드 위에서의 핀치는 화면 확대 대신 이 노드의 글자 크기를 바꾼다. 노드 크기는 그대로다.
-        .gesture(textPinchGesture(for: node), including: focused ? .all : .subviews)
-    }
-
-    private var focusedNodeHasTextScale: Bool {
-        focusedId.flatMap { map[$0] }.map { $0.textScale != 1 } ?? false
-    }
-
-    private func resetTextScale(_ id: WID?) {
-        guard let id else { return }
-        document.perform("Reset Text Size", undoManager: undoManager) { $0.setTextScale(id, 1) }
-    }
-
-    private func textPinchGesture(for node: Node) -> some Gesture {
-        MagnifyGesture()
-            .onChanged { value in
-                withoutAnimation { canvas.textPinch = (node.id, value.magnification) }
-            }
-            .onEnded { value in
-                let target = node.textScale * value.magnification
-                withoutAnimation {
-                    document.perform("Text Size", undoManager: undoManager) { $0.setTextScale(node.id, target) }
-                    canvas.textPinch = nil
-                }
-            }
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
@@ -242,20 +212,20 @@ struct MapScreen: View {
     private static let maxVisibleChips = 6
 
     /// 추가 질문은 한 줄에 하나씩(많으면 스크롤), 맨 아래 줄만 `직접 질문`과 `다른 질문 3개`로 반씩 나눈다 (SPEC 2.3).
-    private func suggestionChips(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
+    private func suggestionChips(for node: Node, zoom: CGFloat) -> some View {
         let open = node.suggestions.filter { $0.usedBy == nil }
         return VStack(spacing: Self.chipSpacing) {
             ChipList(count: open.count, maxVisible: Self.maxVisibleChips, spacing: Self.chipSpacing) {
                 ForEach(open) { suggestion in
-                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom, metrics: ChipMetrics(size: node.sizeScale)) { pick(suggestion, of: node.id) }
+                    chip(Text(suggestion.text), zoom: zoom, metrics: ChipMetrics(size: node.sizeScale)) { pick(suggestion, of: node.id) }
                 }
             }
-            bottomRow(for: node, textScale: textScale, zoom: zoom)
+            bottomRow(for: node, zoom: zoom)
         }
     }
 
     /// `직접 질문`을 누르면 그 칩이 줄 전체로 넓어지며 입력란이 되고, `다른 질문 3개`는 오른쪽으로 밀려 사라진다.
-    private func bottomRow(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
+    private func bottomRow(for node: Node, zoom: CGFloat) -> some View {
         let metrics = ChipMetrics(size: node.sizeScale)
         let composing = composingFor == node.id
         let suggesting = ai.suggesting.contains(node.id)
@@ -284,7 +254,7 @@ struct MapScreen: View {
                         .frame(maxWidth: .infinity)
                 }
             }
-            .font(.scaled(.callout, textScale))
+            .font(.callout)
             .frame(width: composing ? metrics.rowWidth - 2 * Self.chipPadding : metrics.halfTextWidth)
             .padding(.horizontal, Self.chipPadding)
             .padding(.vertical, 9)
@@ -296,7 +266,7 @@ struct MapScreen: View {
 
             if !composing {
                 // 미사용 추가 질문이 최대 개수면 더 받지 않는다(오래된 질문을 몰래 지우지 않는다).
-                chip((full ? Text("Up to \(MindMap.maxOpenSuggestions) questions") : Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, metrics: metrics, width: metrics.halfTextWidth) {
+                chip((full ? Text("Up to \(MindMap.maxOpenSuggestions) questions") : Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), zoom: zoom, metrics: metrics, width: metrics.halfTextWidth) {
                     ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
                 }
                 .disabled(suggesting || full)
@@ -309,10 +279,10 @@ struct MapScreen: View {
     }
 
     /// `width`가 없으면 글자 길이에 맞춰 최대 폭까지 늘어나고, 있으면 그 폭으로 고정한다.
-    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, metrics: ChipMetrics, width: CGFloat? = nil, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: Text, zoom: CGFloat, metrics: ChipMetrics, width: CGFloat? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
-                .font(.scaled(.callout, textScale))
+                .font(.callout)
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .frame(width: width)
@@ -457,7 +427,6 @@ struct MapScreen: View {
                 node: node,
                 canToggleBranch: node.id != map.rootId && !map.childIDs(of: node.id).isEmpty,
                 canDelete: node.id != map.rootId && !isAwaitingAI(inBranchOf: node.id),
-                onTextScale: { value in editStyle { $0.setTextScale(node.id, value) } },
                 onSizeScale: { value in editStyle { $0.setSizeScale(node.id, value) } },
                 onFill: { value in editStyle { $0.setColors(node.id, fill: .some(value)) } },
                 onText: { value in editStyle { $0.setColors(node.id, text: .some(value)) } },
@@ -647,7 +616,6 @@ struct MapScreen: View {
         guard map.nodes.count > 1 else { return }
         if canvas.isSimulating { finishPhysics() }
         focusedId = nil
-        canvas.textPinch = nil
         closeStylePanel()
         canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics), manual: true)
         ticker.start { stepPhysics() }
@@ -779,12 +747,6 @@ struct MapScreen: View {
             }
             .disabled(ai.findingLinks)
             .help("Ask AI to look over the whole map once and connect related nodes with dashed lines")
-            Button { settings.stepTextScale(-1) } label: { Label("Smaller Text", systemImage: "textformat.size.smaller") }
-                .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
-                .help("Smaller text for all nodes (⌘-)")
-            Button { settings.stepTextScale(1) } label: { Label("Larger Text", systemImage: "textformat.size.larger") }
-                .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-                .help("Larger text for all nodes (⌘=)")
         }
     }
 

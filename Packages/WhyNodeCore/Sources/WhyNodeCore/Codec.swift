@@ -107,19 +107,20 @@ public enum WhyNodeCodec {
     static func migrate(_ object: [String: Any], from version: Int) -> [String: Any] {
         guard version < WhyNodeFile.currentSchemaVersion else { return object }
         var result = object
-        if version < 3, let nodes = object["nodes"] as? [Any] {
-            result["nodes"] = nodes.map { value -> Any in
-                guard var node = value as? [String: Any] else { return value }
-                if node["textScale"] == nil { node["textScale"] = 1 }
-                return node
-            }
-        }
         if version < 5, let nodes = result["nodes"] as? [Any] {
             result["nodes"] = nodes.map { value -> Any in
                 guard var node = value as? [String: Any] else { return value }
                 if node["sizeScale"] == nil { node["sizeScale"] = 1 }
                 if node["fillColor"] == nil { node["fillColor"] = NSNull() }
                 if node["textColor"] == nil { node["textColor"] = NSNull() }
+                return node
+            }
+        }
+        // v6에서 노드별 글자 크기(textScale)를 없앴다. 글자 크기는 앱이 질문 길이에 맞춰 정한다.
+        if version < 6, let nodes = result["nodes"] as? [Any] {
+            result["nodes"] = nodes.map { value -> Any in
+                guard var node = value as? [String: Any] else { return value }
+                node["textScale"] = nil
                 return node
             }
         }
@@ -180,7 +181,7 @@ enum SchemaGuard {
     static let usage: Set<String> = ["inputTokens", "outputTokens", "costUSD", "requests"]
     static let node: Set<String> = [
         "id", "parentId", "question", "answer", "summary", "status", "error",
-        "suggestions", "refs", "position", "collapsed", "textScale", "sizeScale", "fillColor", "textColor", "generation", "createdAt", "updatedAt",
+        "suggestions", "refs", "position", "collapsed", "sizeScale", "fillColor", "textColor", "generation", "createdAt", "updatedAt",
     ]
     static let suggestion: Set<String> = ["id", "text", "usedBy"]
     static let ref: Set<String> = ["nodeId", "reason"]

@@ -29,7 +29,6 @@ final class SettingsStore {
     private static let settingsKey = "ai.settings"
     /// 눈금이 바뀐 뒤의 저장 키. 옛 키(`physics.settings`)의 값은 뜻이 달라 읽지 않는다.
     private static let physicsKey = "physics.settings.v2"
-    private static let textScaleKey = "text.scale"
     private static let projectFolderKey = "project.folder"
     private static let languageKey = "app.language"
 
@@ -51,20 +50,6 @@ final class SettingsStore {
     /// 시뮬레이션 조절값 (SPEC 2.6). 프로젝트와 상관없이 앱 전체에서 유지한다.
     var physics: PhysicsSettings = .default {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(physics), forKey: Self.physicsKey) }
-    }
-
-    /// 캔버스 글자 크기 배율. 노드 크기는 그대로 두고 글자만 키운다. 앱 전체에서 유지한다.
-    var textScale: Double = 1 {
-        didSet { UserDefaults.standard.set(textScale, forKey: Self.textScaleKey) }
-    }
-
-    static let textScaleRange: ClosedRange<Double> = 0.8...1.8
-    static let textScaleStep = 0.1
-
-    /// 한 단계 키우거나(+1) 줄인다(-1). 0.1 단위로 맞춰 부동소수 오차가 쌓이지 않게 한다.
-    func stepTextScale(_ direction: Int) {
-        let next = ((textScale + Double(direction) * Self.textScaleStep) * 10).rounded() / 10
-        textScale = min(max(next, Self.textScaleRange.lowerBound), Self.textScaleRange.upperBound)
     }
 
     /// 선저장 폴더를 사용자가 고른 경우의 경로. nil이면 기본 폴더(~/Documents/WhyNode).
@@ -98,8 +83,6 @@ final class SettingsStore {
             physics = saved.clamped
         }
         customProjectFolder = UserDefaults.standard.string(forKey: Self.projectFolderKey)
-        let savedScale = UserDefaults.standard.double(forKey: Self.textScaleKey)
-        if Self.textScaleRange.contains(savedScale) { textScale = savedScale }
         #if os(macOS)
         // 앱을 끌 때 agy 상시 연결 프로세스도 정리한다.
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in

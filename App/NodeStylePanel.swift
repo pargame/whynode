@@ -1,13 +1,12 @@
 import SwiftUI
 import WhyNodeCore
 
-/// 노드를 우클릭하면 옆에 뜨는 편집 패널: 글자 크기 · 노드 크기 · 노드 색 · 글자 색, 가지 접기 · 원래대로 · 삭제.
+/// 노드를 우클릭하면 옆에 뜨는 편집 패널: 노드 크기 · 노드 색 · 글자 색, 가지 접기 · 원래대로 · 삭제.
 /// 화면 배율과 상관없이 같은 크기로 보이고, 열려 있는 동안 [−][+]를 여러 번 누를 수 있다.
 struct NodeStylePanel: View {
     let node: Node
     let canToggleBranch: Bool
     let canDelete: Bool
-    let onTextScale: (Double) -> Void
     let onSizeScale: (Double) -> Void
     let onFill: (String?) -> Void
     let onText: (String?) -> Void
@@ -20,7 +19,6 @@ struct NodeStylePanel: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            stepper("Text Size", value: node.textScale, range: Node.textScaleRange, set: onTextScale)
             stepper("Node Size", value: node.sizeScale, range: Node.sizeScaleRange, set: onSizeScale)
             ColorRow(kind: .fill, title: "Node Color", selected: node.fillColor, openPalette: $openPalette, onSelect: onFill)
             ColorRow(kind: .text, title: "Text Color", selected: node.textColor, openPalette: $openPalette, onSelect: onText)
