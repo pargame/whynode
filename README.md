@@ -4,7 +4,6 @@
 
 WhyNode is a native macOS app for building interactive knowledge mind maps through follow-up questions. Each node pairs a single question with a focused AI answer and suggests the next questions to explore. iPadOS support is paused until official provider sign-in is available; the code keeps its platform branches.
 
-
 ## Project Structure
 
 | Path | Description |
