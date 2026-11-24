@@ -142,13 +142,14 @@ struct WindowReader: NSViewRepresentable {
     }
 }
 
-/// 캔버스 키 · 마우스 입력: ⌫ · ⌦(포커스 노드 삭제), Esc(편집 패널 닫기), 우클릭 · Control+클릭(노드 편집 패널 열기).
+/// 캔버스 키 · 마우스 입력: ⌫ · ⌦(포커스 노드 삭제), Esc(편집 패널 닫기), 스페이스(시뮬레이션 켜기 · 끄기), 우클릭 · Control+클릭(노드 편집 패널 열기).
 /// 이 뷰가 놓인 창이 키 창이고, 글자 입력 중이 아니며, 시트 · 알림이 없을 때만 처리한다.
 /// 메뉴 단축키로 두면 입력칸의 글자 지우기까지 가로채므로 이벤트를 직접 거른다.
 struct CanvasEventMonitor: NSViewRepresentable {
     /// 각 처리기는 처리했으면 true를 돌려 이벤트를 소비한다.
     let onDelete: () -> Bool
     let onEscape: () -> Bool
+    let onSpace: () -> Bool
     /// 캔버스 좌표(왼쪽 위 원점)를 받는다.
     let onSecondaryClick: (CGPoint) -> Bool
 
@@ -165,17 +166,20 @@ struct CanvasEventMonitor: NSViewRepresentable {
     private func update(_ view: MonitorView) {
         view.onDelete = onDelete
         view.onEscape = onEscape
+        view.onSpace = onSpace
         view.onSecondaryClick = onSecondaryClick
     }
 
     final class MonitorView: NSView {
         var onDelete: (() -> Bool)?
         var onEscape: (() -> Bool)?
+        var onSpace: (() -> Bool)?
         var onSecondaryClick: ((CGPoint) -> Bool)?
         nonisolated(unsafe) private var monitor: Any?
         /// 51: Delete(⌫), 117: Forward Delete(⌦)
         private static let deleteKeys: Set<UInt16> = [51, 117]
         private static let escapeKey: UInt16 = 53
+        private static let spaceKey: UInt16 = 49
 
         override var isFlipped: Bool { true }
 
@@ -192,6 +196,8 @@ struct CanvasEventMonitor: NSViewRepresentable {
                     guard window.isKeyWindow, modifiers.isEmpty, !(window.firstResponder is NSText) else { return event }
                     if Self.deleteKeys.contains(event.keyCode) { return self.onDelete?() == true ? nil : event }
                     if event.keyCode == Self.escapeKey { return self.onEscape?() == true ? nil : event }
+                    // 누르고 있어도 켜고 끄기를 반복하지 않는다.
+                    if event.keyCode == Self.spaceKey { return event.isARepeat || self.onSpace?() == true ? nil : event }
                     return event
                 case .rightMouseDown:
                     return self.secondaryClick(event) ? nil : event

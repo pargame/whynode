@@ -81,6 +81,10 @@ struct MapScreen: View {
                 closeStylePanel()
                 return true
             },
+            onSpace: {
+                togglePhysics()
+                return true
+            },
             onSecondaryClick: { openStylePanel(at: $0) }
         ))
         .background(WindowReader { [canvas] in canvas.window = $0 })

@@ -44,6 +44,7 @@ struct PhysicsControl: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
+            .help("Start or stop the simulation (Space)")
             .symbolEffect(.rotate, isActive: isRunning)
 
             Button { keepsOpen.toggle() } label: {
@@ -63,7 +64,7 @@ struct PhysicsControl: View {
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
             row("Repulsion", value: $settings.repel, range: PhysicsSettings.range, step: 0.1)
-            row("Tension", value: $settings.tension, range: PhysicsSettings.range, step: 0.1)
+            row("Tension", value: $settings.tension, range: PhysicsSettings.range, step: 1)
         }
     }
 
@@ -89,7 +90,7 @@ struct PhysicsControl: View {
                 // 직접 입력한 값은 범위 안으로 맞춘다.
                 TextField(title, value: Binding(
                     get: { value.wrappedValue },
-                    set: { value.wrappedValue = min(max($0, range.lowerBound), range.upperBound) }
+                    set: { value.wrappedValue = min(max(($0 / step).rounded() * step, range.lowerBound), range.upperBound) }
                 ), format: .number.precision(.fractionLength(0...2)))
                 .labelsHidden()
                 .textFieldStyle(.roundedBorder)
