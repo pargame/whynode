@@ -11,14 +11,14 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
     /// 루트 쪽으로 모으는 힘
     public var gravity: Double
 
-    /// 주인이 실제로 맞춰 본 값. 슬라이더 가운데에 오도록 범위는 0~기본값×2로 잡는다.
-    /// 장력은 4에서 끝까지 살짝 떨리고 6부터 발산하므로 4보다 크게 잡지 않는다.
+    /// 주인이 실제로 맞춰 본 값. 범위는 0~기본값×6으로 넓힌다.
+    /// 장력만 6까지로 둔다. 실측에서 6까지는 멈추고, 6.5부터 끝까지 떨리며, 8부터 발산했다.
     public static let `default` = PhysicsSettings(repel: 1, tension: 2, linkDistance: 50, gravity: 1)
 
-    public static let repelRange: ClosedRange<Double> = 0...2
-    public static let tensionRange: ClosedRange<Double> = 0...4
-    public static let linkDistanceRange: ClosedRange<Double> = 0...100
-    public static let gravityRange: ClosedRange<Double> = 0...2
+    public static let repelRange: ClosedRange<Double> = 0...6
+    public static let tensionRange: ClosedRange<Double> = 0...6
+    public static let linkDistanceRange: ClosedRange<Double> = 0...300
+    public static let gravityRange: ClosedRange<Double> = 0...6
 
     public init(repel: Double, tension: Double, linkDistance: Double, gravity: Double) {
         self.repel = repel
