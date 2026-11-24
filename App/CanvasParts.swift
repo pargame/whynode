@@ -68,6 +68,47 @@ final class FrameTicker: NSObject {
 }
 
 #if os(macOS)
+/// 스페이스(시뮬레이션 켜기) 눌림 감지. 평소에는 키 이벤트로 받고, 노드를 끌거나 화면을 미는 중에는
+/// 키 이벤트가 늦게 올 수 있어 키보드 상태를 직접 읽는다. 눌림 한 번에 한 번만 알린다.
+final class SpaceKey {
+    private(set) var isDown = false
+    var onPress: (() -> Void)?
+    private var timer: Timer?
+    private static let keyCode: CGKeyCode = 49
+
+    /// 키 이벤트로 눌렸을 때. 이미 눌린 상태로 알고 있으면 다시 알리지 않는다.
+    func keyDown() {
+        guard !isDown else { return }
+        isDown = true
+        onPress?()
+    }
+
+    func keyUp() {
+        isDown = false
+    }
+
+    /// 끌기 · 밀기가 시작되면 부른다. 여러 번 불러도 하나만 돈다.
+    func startPolling() {
+        guard timer == nil else { return }
+        let timer = Timer(timeInterval: 1.0 / 60, repeats: true) { [weak self] _ in self?.poll() }
+        RunLoop.main.add(timer, forMode: .common)
+        self.timer = timer
+    }
+
+    func stopPolling() {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    private func poll() {
+        if CGEventSource.keyState(.combinedSessionState, key: Self.keyCode) {
+            keyDown()
+        } else {
+            keyUp()
+        }
+    }
+}
+
 /// 트랙패드 두 손가락 스크롤 · 마우스 휠로 캔버스를 움직인다. 시스템이 보내는 관성 이벤트를 그대로 받아 손을 뗀 뒤에도 부드럽게 미끄러진다.
 /// 이 뷰가 놓인 창의 스크롤만 처리한다.
 struct ScrollPanMonitor: NSViewRepresentable {
@@ -142,7 +183,7 @@ struct WindowReader: NSViewRepresentable {
     }
 }
 
-/// 캔버스 키 · 마우스 입력: ⌫ · ⌦(포커스 노드 삭제), Esc(편집 패널 닫기), 스페이스(시뮬레이션 켜기 · 끄기), 우클릭 · Control+클릭(노드 편집 패널 열기).
+/// 캔버스 키 · 마우스 입력: ⌫ · ⌦(포커스 노드 삭제), Esc(편집 패널 닫기), 스페이스(시뮬레이션 켜기), 우클릭 · Control+클릭(노드 편집 패널 열기).
 /// 이 뷰가 놓인 창이 키 창이고, 글자 입력 중이 아니며, 시트 · 알림이 없을 때만 처리한다.
 /// 메뉴 단축키로 두면 입력칸의 글자 지우기까지 가로채므로 이벤트를 직접 거른다.
 struct CanvasEventMonitor: NSViewRepresentable {
@@ -150,6 +191,7 @@ struct CanvasEventMonitor: NSViewRepresentable {
     let onDelete: () -> Bool
     let onEscape: () -> Bool
     let onSpace: () -> Bool
+    let onSpaceUp: () -> Void
     /// 캔버스 좌표(왼쪽 위 원점)를 받는다.
     let onSecondaryClick: (CGPoint) -> Bool
 
@@ -167,6 +209,7 @@ struct CanvasEventMonitor: NSViewRepresentable {
         view.onDelete = onDelete
         view.onEscape = onEscape
         view.onSpace = onSpace
+        view.onSpaceUp = onSpaceUp
         view.onSecondaryClick = onSecondaryClick
     }
 
@@ -174,6 +217,7 @@ struct CanvasEventMonitor: NSViewRepresentable {
         var onDelete: (() -> Bool)?
         var onEscape: (() -> Bool)?
         var onSpace: (() -> Bool)?
+        var onSpaceUp: (() -> Void)?
         var onSecondaryClick: ((CGPoint) -> Bool)?
         nonisolated(unsafe) private var monitor: Any?
         /// 51: Delete(⌫), 117: Forward Delete(⌦)
@@ -188,7 +232,7 @@ struct CanvasEventMonitor: NSViewRepresentable {
             if let monitor { NSEvent.removeMonitor(monitor) }
             monitor = nil
             guard window != nil else { return }
-            monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .rightMouseDown, .leftMouseDown]) { [weak self] event in
+            monitor = NSEvent.addLocalMonitorForEvents(matching: [.keyDown, .keyUp, .rightMouseDown, .leftMouseDown]) { [weak self] event in
                 guard let self, let window = self.window, event.window === window, window.attachedSheet == nil else { return event }
                 let modifiers = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad, .capsLock])
                 switch event.type {
@@ -198,6 +242,10 @@ struct CanvasEventMonitor: NSViewRepresentable {
                     if event.keyCode == Self.escapeKey { return self.onEscape?() == true ? nil : event }
                     // 누르고 있어도 켜고 끄기를 반복하지 않는다.
                     if event.keyCode == Self.spaceKey { return event.isARepeat || self.onSpace?() == true ? nil : event }
+                    return event
+                case .keyUp:
+                    // 입력칸 · 다른 창과 상관없이 떼면 눌림 상태를 푼다.
+                    if event.keyCode == Self.spaceKey { self.onSpaceUp?() }
                     return event
                 case .rightMouseDown:
                     return self.secondaryClick(event) ? nil : event

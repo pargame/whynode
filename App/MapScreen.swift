@@ -30,6 +30,10 @@ struct MapScreen: View {
     @State private var importError: String?
     @State private var showSettings = false
     @State private var ticker = FrameTicker()
+    #if os(macOS)
+    /// 스페이스로 시뮬레이션 켜기. 노드를 끄는 중 · 화면을 미는 중에도 독립적으로 동작한다.
+    @State private var spaceKey = SpaceKey()
+    #endif
 
     private static let focusSpring = Animation.spring(duration: 0.35, bounce: 0.15)
 
@@ -82,9 +86,10 @@ struct MapScreen: View {
                 return true
             },
             onSpace: {
-                togglePhysics()
+                spaceKey.keyDown()
                 return true
             },
+            onSpaceUp: { spaceKey.keyUp() },
             onSecondaryClick: { openStylePanel(at: $0) }
         ))
         .background(WindowReader { [canvas] in canvas.window = $0 })
@@ -110,6 +115,10 @@ struct MapScreen: View {
                 .environment(settings)
         }
         .onAppear {
+            #if os(macOS)
+            // 스페이스는 켜기만 한다. 끄기는 저절로 멈추거나 버튼으로 끈다.
+            spaceKey.onPress = { if !canvas.isRunning { startPhysics() } }
+            #endif
             // 원점은 루트다. 열 때 루트를 화면 가운데에 둔다.
             canvas.offset = CGSize(width: -map.root.position.x * canvas.scale, height: -map.root.position.y * canvas.scale)
             ai.center = settings.requests
@@ -526,10 +535,16 @@ struct MapScreen: View {
     private var panGesture: some Gesture {
         DragGesture()
             .onChanged { value in
+                #if os(macOS)
+                spaceKey.startPolling()
+                #endif
                 closeStylePanel()
                 canvas.livePan = value.translation
             }
             .onEnded { [canvas] value in
+                #if os(macOS)
+                spaceKey.stopPolling()
+                #endif
                 withoutAnimation {
                     canvas.offset.width += value.translation.width
                     canvas.offset.height += value.translation.height
@@ -569,6 +584,9 @@ struct MapScreen: View {
     private func moveGesture(for node: Node) -> some Gesture {
         DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { value in
+                #if os(macOS)
+                spaceKey.startPolling()
+                #endif
                 // 자동 정리 중에 노드를 잡으면 정리를 먼저 끝내고 평소처럼 옮긴다(놓으면 고정 · 실행 취소 1회).
                 if canvas.isSimulating, !canvas.isRunning { finishPhysics() }
                 withoutAnimation { canvas.dragging = (node.id, value.translation) }
@@ -585,6 +603,9 @@ struct MapScreen: View {
                 }
             }
             .onEnded { value in
+                #if os(macOS)
+                spaceKey.stopPolling()
+                #endif
                 if canvas.simulation != nil {
                     canvas.simulation?.release(node.id)
                     canvas.simulation?.reheat(to: 0.3)
@@ -668,7 +689,12 @@ struct MapScreen: View {
         guard canvas.simulation != nil else { return }
         let manual = canvas.isRunning
         withoutAnimation {
-            guard let positions = canvas.stopSimulation() else { return }
+            let holdOrigin = canvas.holdOrigin
+            guard var positions = canvas.stopSimulation() else { return }
+            // 노드를 끄는 도중에 멈추면 그 노드는 잡은 순간의 자리로 두고, 남은 끌기는 평소 끌기(자리 + 이동량)로 이어 간다.
+            if let dragged = canvas.dragging?.id, let holdOrigin {
+                positions[dragged] = (Double(holdOrigin.x), Double(holdOrigin.y))
+            }
             if manual {
                 document.perform("Simulation", undoManager: undoManager) { $0.arrange(positions) }
             } else {

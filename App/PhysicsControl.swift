@@ -44,7 +44,7 @@ struct PhysicsControl: View {
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .help("Start or stop the simulation (Space)")
+            .help("Start the simulation with Space")
             .symbolEffect(.rotate, isActive: isRunning)
 
             Button { keepsOpen.toggle() } label: {

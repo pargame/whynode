@@ -97,7 +97,7 @@ struct HelpContent: View {
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
                 row("⌘N", "New Project")
                 row("⇧⌘O", "Show Projects")
-                row("Space", "Start or stop the simulation")
+                row("Space", "Start the simulation")
                 row("⌘Z  ⌘⇧Z", "Undo and Redo")
                 row("⌫", "Delete the focused node")
                 row("Esc", "Close the style panel or an empty question input")
