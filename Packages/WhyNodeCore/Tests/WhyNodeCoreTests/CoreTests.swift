@@ -239,6 +239,22 @@ struct MindMapTests {
         #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
     }
 
+    @Test func 되살린_대기_노드는_그사이_받은_답을_이어받는다() throws {
+        var before = MindMap.new(now: t0)
+        before.setRootQuestion("주제", now: t0)
+        let a = try unwrap(before.addCustomChild(of: before.rootId, question: "A", now: t0))
+        var after = before
+        answered(&after, before.rootId)
+        answered(&after, a)
+        after.editQuestion(a, to: "A2", now: t0.addingTimeInterval(2))
+        var restored = before
+        restored.adoptAnswers(from: after)
+        // 질문이 같은 루트는 답을 이어받고, 질문이 바뀐 A는 그대로 대기다.
+        #expect(restored.root.status == .done)
+        #expect(restored.root.answer == after.root.answer)
+        #expect(restored[a]?.status == .pending)
+    }
+
     @Test func 요청이_없는_대기_노드만_중단_상태가_된다() throws {
         var map = MindMap.new(now: t0)
         map.setRootQuestion("주제", now: t0)

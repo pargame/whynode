@@ -51,17 +51,17 @@ final class AIController {
                     }
                 }
                 guard let document, Self.isCurrent(document.map[id], status: .pending, question: question) else { return }
-                document.perform("Receive Answer", undoManager: undoManager) {
+                document.applyAIResult {
                     $0.applyAnswer(id, validated, generation: provider.generation())
                 }
                 if validated.needsMoreSuggestions {
-                    requestSuggestions(for: id, in: document, undoManager: undoManager, exclude: validated.removed)
+                    requestSuggestions(for: id, in: document, undoManager: undoManager, exclude: validated.removed, isAutomatic: true)
                 }
             } catch is CancellationError {
                 // 끊긴 요청은 실패로 남기지 않는다.
             } catch {
                 guard !Task.isCancelled, let document, Self.isCurrent(document.map[id], status: .pending, question: question) else { return }
-                document.perform("Answer Failed", undoManager: undoManager) {
+                document.applyAIResult {
                     $0.failRequest(id, message: error.localizedDescription)
                 }
             }
@@ -70,7 +70,8 @@ final class AIController {
     }
 
     /// `limit`이 있으면 검증을 통과한 추가 질문 중 앞에서부터 그 개수만 쓴다.
-    func requestSuggestions(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?, exclude: [String] = [], limit: Int? = nil) {
+    /// 사용자가 누른 다시 받기는 실행 취소로 이전 추가 질문을 되찾을 수 있게 단계로 쌓고, 답변 뒤 자동 보충(`isAutomatic`)은 쌓지 않는다.
+    func requestSuggestions(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?, exclude: [String] = [], limit: Int? = nil, isAutomatic: Bool = false) {
         guard let center, let node = document.map[id], node.status == .done, !suggesting.contains(id),
               let context = ContextBuilder.suggest(for: id, in: document.map, exclude: exclude)
         else { return }
@@ -98,11 +99,15 @@ final class AIController {
                 let (validated, _) = ResponseValidator.validate(response, for: id, in: document.map)
                 let kept = limit.map { Array(validated.prefix($0)) } ?? validated
                 guard !kept.isEmpty else {
-                    notice = String(localized: "No new suggestions found.")
+                    if !isAutomatic { notice = String(localized: "No new suggestions found.") }
                     return
                 }
-                document.perform("Refresh Suggestions", undoManager: undoManager) {
-                    $0.replaceSuggestions(id, with: kept)
+                if isAutomatic {
+                    document.applyAIResult { $0.replaceSuggestions(id, with: kept) }
+                } else {
+                    document.perform("Refresh Suggestions", undoManager: undoManager) {
+                        $0.replaceSuggestions(id, with: kept)
+                    }
                 }
             } catch is CancellationError {
             } catch {

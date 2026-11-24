@@ -172,6 +172,25 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
+    /// 실행 취소로 되살린 상태에 `other`(되돌리기 직전 상태)의 AI 결과를 옮긴다.
+    /// AI 답변은 실행 취소 단계가 아니므로, 되살린 시점에 답을 기다리던 노드라도 그 사이 받은 답은 남긴다.
+    /// 질문이 같고 `other`에서 답이 끝난(done · error) 노드만 옮겨, 질문 수정 · 다시 받기를 되돌리는 경우는 건드리지 않는다.
+    public mutating func adoptAnswers(from other: MindMap) {
+        for i in file.nodes.indices where file.nodes[i].status == .pending {
+            guard let source = other[file.nodes[i].id], source.question == file.nodes[i].question,
+                  source.status == .done || source.status == .error
+            else { continue }
+            file.nodes[i].answer = source.answer
+            file.nodes[i].summary = source.summary
+            file.nodes[i].suggestions = source.suggestions
+            file.nodes[i].refs = source.refs
+            file.nodes[i].generation = source.generation
+            file.nodes[i].status = source.status
+            file.nodes[i].error = source.error
+            file.nodes[i].updatedAt = source.updatedAt
+        }
+    }
+
     /// 진행 중인 요청이 없는 대기 노드를 중단 상태로 바꾼다. 실행 취소로 되돌린 대기 노드가 영영 기다리지 않게 한다.
     /// 열 때의 복구(`Integrity.repair`)와 같이 수정 시각은 건드리지 않는다.
     public mutating func interruptPending(except inFlight: Set<WID>) {

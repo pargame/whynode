@@ -45,6 +45,14 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
     /// 실행 취소 없이 바꾼 내용을 저장 대상으로 표시한다. 화면(MapScreen)이 창의 NSDocument로 연결한다.
     var markEdited: (() -> Void)?
 
+    /// AI가 보낸 결과(답변 · 실패 · 자동 추가 질문)를 반영한다. 사용자의 편집이 아니므로 실행 취소 단계로 쌓지 않고 저장 대상으로만 표시한다.
+    /// 그래서 추가 질문을 고른 뒤 실행 취소하면 노드가 한 번에 사라진다.
+    func applyAIResult(_ change: (inout MindMap) -> Void) {
+        let before = map
+        change(&map)
+        if map != before { markEdited?() }
+    }
+
     /// AI 사용량을 프로젝트 누적에 더한다. 실행 취소에 쌓지 않고 저장 대상으로만 표시한다.
     func addUsage(_ usage: TokenUsage) {
         map.addUsage(usage)
@@ -67,6 +75,8 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
                 let current = document.map
                 // 되돌린 상태의 대기 노드는 요청이 없으면 영영 기다리므로, 다시 시도할 수 있게 중단 상태로 바꾼다.
                 var restored = previous
+                // AI 답변은 실행 취소 단계가 아니므로 그사이 받은 답은 남기고, 그래도 기다리는 노드는 중단으로 둔다.
+                restored.adoptAnswers(from: current)
                 restored.interruptPending(except: document.inFlight)
                 // 사용량은 실제로 쓴 만큼이라 되돌리지 않는다.
                 restored.keepUsage(current.file.project.usage)
