@@ -15,18 +15,24 @@ struct NodeStylePanel: View {
     let onReset: () -> Void
     let onDelete: () -> Void
 
+    /// 펼쳐진 사용자 지정 색 격자. 한 번에 하나만 펼치고, 패널의 다른 곳을 누르면 접는다.
+    @State private var openPalette: ColorRow.Kind?
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             stepper("Text Size", value: node.textScale, range: Node.textScaleRange, set: onTextScale)
             stepper("Node Size", value: node.sizeScale, range: Node.sizeScaleRange, set: onSizeScale)
-            ColorRow(title: "Node Color", selected: node.fillColor, onSelect: onFill)
-            ColorRow(title: "Text Color", selected: node.textColor, onSelect: onText)
+            ColorRow(kind: .fill, title: "Node Color", selected: node.fillColor, openPalette: $openPalette, onSelect: onFill)
+            ColorRow(kind: .text, title: "Text Color", selected: node.textColor, openPalette: $openPalette, onSelect: onText)
             Divider()
             HStack(spacing: 8) {
                 if canToggleBranch {
                     Button(node.collapsed ? "Expand Branch" : "Collapse Branch", action: onToggleBranch)
                 }
-                Button("Reset Style", action: onReset)
+                Button("Reset Style") {
+                    closePalette()
+                    onReset()
+                }
                     .disabled(!node.hasCustomStyle)
                 Spacer(minLength: 0)
                 if canDelete {
@@ -41,18 +47,26 @@ struct NodeStylePanel: View {
         .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Theme.separator))
         .shadow(color: .black.opacity(0.18), radius: 14, y: 4)
+        // 버튼이 아닌 빈 곳을 눌러도 펼친 격자를 접는다. 패널 밖을 누르면 패널째 닫힌다.
+        .contentShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .onTapGesture { closePalette() }
+    }
+
+    private func closePalette() {
+        guard openPalette != nil else { return }
+        withAnimation(.snappy(duration: 0.25)) { openPalette = nil }
     }
 
     private func stepper(_ title: LocalizedStringKey, value: Double, range: ClosedRange<Double>, set: @escaping (Double) -> Void) -> some View {
         HStack {
             Text(title)
             Spacer()
-            Button { set(value - 0.1) } label: { Image(systemName: "minus") }
+            Button { closePalette(); set(value - 0.1) } label: { Image(systemName: "minus") }
                 .disabled(value <= range.lowerBound)
             Text(verbatim: value.formatted(.number.precision(.fractionLength(1))) + "×")
                 .monospacedDigit()
                 .frame(width: 40)
-            Button { set(value + 0.1) } label: { Image(systemName: "plus") }
+            Button { closePalette(); set(value + 0.1) } label: { Image(systemName: "plus") }
                 .disabled(value >= range.upperBound)
         }
         .buttonStyle(.bordered)
@@ -62,11 +76,15 @@ struct NodeStylePanel: View {
 
 /// 색 한 줄: 기본 · 프리셋 5색 · 사용자 지정. 사용자 지정(무지개 동그라미)을 누르면 패널 안에서 색 격자가 아래로 펼쳐진다.
 private struct ColorRow: View {
+    enum Kind { case fill, text }
+
+    let kind: Kind
     let title: LocalizedStringKey
     let selected: String?
+    @Binding var openPalette: Kind?
     let onSelect: (String?) -> Void
 
-    @State private var expanded = false
+    private var expanded: Bool { openPalette == kind }
 
     private var isCustom: Bool { selected.map { !NodeColor.presets.contains($0) } ?? false }
 
@@ -86,7 +104,7 @@ private struct ColorRow: View {
                 }
                 Spacer(minLength: 4)
                 // 지금 사용자 지정 색이면 그 색을, 아니면 무지개를 보여 준다.
-                swatch(isSelected: isCustom || expanded, action: { withAnimation(.snappy(duration: 0.25)) { expanded.toggle() } }) {
+                swatch(isSelected: isCustom || expanded, action: { withAnimation(.snappy(duration: 0.25)) { openPalette = expanded ? nil : kind } }) {
                     if isCustom, let color = Theme.nodeColor(selected) {
                         Circle().fill(color)
                     } else {
@@ -102,9 +120,10 @@ private struct ColorRow: View {
         }
     }
 
+    /// 색을 고르면(프리셋 · 기본 포함) 펼친 격자를 접는다.
     private func pick(_ value: String?) {
         onSelect(value)
-        withAnimation(.snappy(duration: 0.25)) { expanded = false }
+        withAnimation(.snappy(duration: 0.25)) { openPalette = nil }
     }
 
     private func swatch(isSelected: Bool, action: @escaping () -> Void, @ViewBuilder fill: () -> some View) -> some View {
@@ -153,6 +172,9 @@ struct PaletteGrid: View {
         }
         .padding(8)
         .background(Theme.surface.opacity(0.6), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        // 격자 안의 틈을 눌렀을 때는 접히지 않게 여기서 받는다.
+        .contentShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .onTapGesture {}
     }
 
     /// HSB를 "#RRGGBB"로 바꾼다.
