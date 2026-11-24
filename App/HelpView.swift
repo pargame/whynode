@@ -34,21 +34,21 @@ struct HelpView: View {
 /// 도움말 본문(스크롤 없이). 스냅샷에서도 쓴다.
 struct HelpContent: View {
     var body: some View {
-                VStack(alignment: .leading, spacing: 22) {
-                    section(.start, "Getting Started", systemImage: "sparkles",
-                            "Create a new project and type any topic or question in the first node. WhyNode writes a short answer and suggests follow-up questions below the card. New projects are saved to your projects folder right away and keep saving automatically.")
-                    section(.branching, "Branching Out", systemImage: "arrow.triangle.branch",
-                            "Click a suggestion chip to grow a new node from it. If none fits, use Ask Your Own to type your own question, or 3 Other Questions for fresh ideas (up to 12 unused questions). Regenerate Answer at the bottom of a card asks for a new answer.")
-                    section(.canvas, "Canvas", systemImage: "hand.draw",
-                            "Drag the background, scroll with two fingers, or pinch to move and zoom. Pinching over an expanded node changes only that node's text size. Simulate in the bottom-right corner untangles overlapping nodes; open its arrow to tune repulsion, tension, link distance, and gravity.")
-                    section(.styling, "Styling Nodes", systemImage: "paintpalette",
-                            "Right-click (or Control-click) a node to open its style panel. Text size, node size, node color, and text color change while the panel stays open. The panel also collapses a branch, resets the style, or deletes the node.")
-                    section(.ai, "AI and Usage", systemImage: "gauge.with.dots.needle.33percent",
-                            "The bar at the bottom left shows a status dot (green: ready, orange: answering, gray: not connected), the model in use, and the project's total tokens. Click it for this session's totals and the last request. Undo and deleting are paused while an answer is on its way, because a request cut off midway still uses tokens that can't be counted.")
-                    shortcuts.id(HelpSection.shortcuts)
-                }
-                .padding(28)
-                .frame(maxWidth: 620, alignment: .leading)
+        VStack(alignment: .leading, spacing: 22) {
+            section(.start, "Getting Started", systemImage: "sparkles",
+                    "Create a new project and type any topic or question in the first node. WhyNode writes a short answer and suggests follow-up questions below the card. New projects are saved to your projects folder right away and keep saving automatically.")
+            section(.branching, "Branching Out", systemImage: "arrow.triangle.branch",
+                    "Click a suggestion chip to grow a new node from it. If none fits, use Ask Your Own to type your own question, or 3 Other Questions for fresh ideas (up to 12 unused questions). Regenerate Answer at the bottom of a card asks for a new answer.")
+            section(.canvas, "Canvas", systemImage: "hand.draw",
+                    "Drag the background, scroll with two fingers, or pinch to move and zoom. Pinching over an expanded node changes only that node's text size. Simulate in the bottom-right corner untangles overlapping nodes; open its arrow to tune repulsion, tension, link distance, and gravity.")
+            section(.styling, "Styling Nodes", systemImage: "paintpalette",
+                    "Right-click (or Control-click) a node to open its style panel. Text size, node size, node color, and text color change while the panel stays open. The panel also collapses a branch, resets the style, or deletes the node.")
+            section(.ai, "AI and Usage", systemImage: "gauge.with.dots.needle.33percent",
+                    "The bar at the bottom left shows a status dot (green: ready, orange: answering, gray: not connected), the model in use, and the project's total tokens. Click it for this session's totals and the last request. Undo and deleting are paused while an answer is on its way, because a request cut off midway still uses tokens that can't be counted.")
+            shortcuts.id(HelpSection.shortcuts)
+        }
+        .padding(28)
+        .frame(maxWidth: 620, alignment: .leading)
     }
 
     private func section(_ id: HelpSection, _ title: LocalizedStringKey, systemImage: String, _ body: LocalizedStringKey) -> some View {
@@ -74,6 +74,7 @@ struct HelpContent: View {
                 row("⌘=  ⌘-", "Larger or smaller text for all nodes")
                 row("⌘0", "Reset the focused node's text size, or the app's when it's unchanged")
                 row("⌘,", "Settings")
+                row("⌘?", "WhyNode Help")
             }
         }
     }
