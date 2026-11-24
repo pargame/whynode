@@ -308,12 +308,21 @@ struct MapScreen: View {
                 document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(node.id) }
                 if let focusedId, map[focusedId] == nil { self.focusedId = nil }
             }
+            .disabled(isAwaitingAI(inBranchOf: node.id))
         }
+    }
+
+    /// 이 노드나 그 아래 가지에 AI 답변 · 추가 질문을 기다리는 노드가 있는지. 있으면 삭제를 막는다(SPEC 6.6).
+    /// 도중에 끊긴 요청은 사용량을 알 수 없어 토큰이 새기 때문이다.
+    private func isAwaitingAI(inBranchOf id: WID) -> Bool {
+        let waiting = Set(settings.requests.requests(in: ObjectIdentifier(document)).map(\.key.node))
+        guard !waiting.isEmpty else { return false }
+        return map.subtreeIDs(of: id).contains { waiting.contains($0) }
     }
 
     /// ⌫ · ⌦: 포커스 노드와 그 아래 가지를 확인 없이 지운다. ⌘Z로 되돌린다. 루트는 지우지 않는다.
     private func deleteFocused() -> Bool {
-        guard let id = focusedId, id != map.rootId, map[id] != nil else { return false }
+        guard let id = focusedId, id != map.rootId, map[id] != nil, !isAwaitingAI(inBranchOf: id) else { return false }
         document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(id) }
         focusedId = nil
         return true
