@@ -70,6 +70,9 @@ public struct GeminiProvider: AIProvider {
             "generationConfig": ["responseMimeType": "application/json"],
         ]
         let object = try await HTTP.post(url, headers: ["x-goog-api-key": apiKey], body: body)
+        if let meta = object["usageMetadata"] as? [String: Any] {
+            UsageMeter.record(TokenUsage(inputTokens: UsageMeter.int(meta["promptTokenCount"]), outputTokens: UsageMeter.int(meta["candidatesTokenCount"]) + UsageMeter.int(meta["thoughtsTokenCount"])))
+        }
         let parts = (((object["candidates"] as? [[String: Any]])?.first?["content"] as? [String: Any])?["parts"] as? [[String: Any]]) ?? []
         let text = parts.compactMap { $0["text"] as? String }.joined()
         guard !text.isEmpty else { throw ProviderError.emptyResponse }
@@ -131,6 +134,10 @@ public struct AnthropicProvider: AIProvider {
             headers: ["x-api-key": apiKey, "anthropic-version": "2023-06-01"],
             body: body
         )
+        if let usage = object["usage"] as? [String: Any] {
+            let input = UsageMeter.int(usage["input_tokens"]) + UsageMeter.int(usage["cache_creation_input_tokens"]) + UsageMeter.int(usage["cache_read_input_tokens"])
+            UsageMeter.record(TokenUsage(inputTokens: input, outputTokens: UsageMeter.int(usage["output_tokens"])))
+        }
         let blocks = object["content"] as? [[String: Any]] ?? []
         guard let input = blocks.first(where: { $0["type"] as? String == "tool_use" })?["input"] else {
             throw ProviderError.emptyResponse
@@ -184,6 +191,9 @@ public struct OpenAIProvider: AIProvider {
             headers: ["Authorization": "Bearer \(apiKey)"],
             body: body
         )
+        if let usage = object["usage"] as? [String: Any] {
+            UsageMeter.record(TokenUsage(inputTokens: UsageMeter.int(usage["prompt_tokens"]), outputTokens: UsageMeter.int(usage["completion_tokens"])))
+        }
         let message = (object["choices"] as? [[String: Any]])?.first?["message"] as? [String: Any]
         guard let text = message?["content"] as? String, !text.isEmpty else { throw ProviderError.emptyResponse }
         return text

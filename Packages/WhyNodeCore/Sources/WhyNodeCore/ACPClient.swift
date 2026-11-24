@@ -51,7 +51,11 @@ public actor ACPClient {
                 return try await group.next()!
             }
             let object = try? JSONSerialization.jsonObject(with: result) as? [String: Any]
-            lastUsage = object?["usage"] as? [String: Int]
+            let usage = object?["usage"] as? [String: Any]
+            lastUsage = usage?.mapValues { UsageMeter.int($0) }
+            if let usage {
+                UsageMeter.record(TokenUsage(inputTokens: UsageMeter.int(usage["inputTokens"]) + UsageMeter.int(usage["cachedReadTokens"]) + UsageMeter.int(usage["cachedWriteTokens"]), outputTokens: UsageMeter.int(usage["outputTokens"])))
+            }
         } catch {
             notify("session/cancel", ["sessionId": sessionId])
             throw error

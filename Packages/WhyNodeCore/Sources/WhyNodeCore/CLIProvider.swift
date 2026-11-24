@@ -69,6 +69,7 @@ public struct CLIProvider: AIProvider {
         if let status = object["status"] as? String, status != "SUCCESS" {
             throw ProviderError.cliFailed(object["response"] as? String ?? status)
         }
+        UsageMeter.record(usage(from: object))
         if let structured = object["structured_output"],
            let data = try? JSONSerialization.data(withJSONObject: structured),
            let value = try? JSONDecoder().decode(T.self, from: data), usable(value) {
@@ -81,6 +82,13 @@ public struct CLIProvider: AIProvider {
             }
         }
         throw ProviderError.unreadableResponse(String(text.prefix(200)))
+    }
+
+    /// claude `-p --output-format json`의 `usage` · `total_cost_usd`. 입력은 캐시 읽기 · 쓰기를 더한다.
+    static func usage(from object: [String: Any]) -> TokenUsage? {
+        guard let usage = object["usage"] as? [String: Any] else { return nil }
+        let input = UsageMeter.int(usage["input_tokens"]) + UsageMeter.int(usage["cache_creation_input_tokens"]) + UsageMeter.int(usage["cache_read_input_tokens"])
+        return TokenUsage(inputTokens: input, outputTokens: UsageMeter.int(usage["output_tokens"]), costUSD: (object["total_cost_usd"] as? Double) ?? 0)
     }
 
     private func run(_ context: ContextPackage) async throws -> Data {
@@ -185,6 +193,7 @@ enum CLIProcess {
         process.standardError = stderr
         process.standardInput = FileHandle.nullDevice
 
+        let cancel = CancelFlag()
         return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data, Error>) in
                 let output = OutputBuffer()
@@ -196,22 +205,64 @@ enum CLIProcess {
                     output.append(stdout.fileHandleForReading.readDataToEndOfFile(), error: false)
                     output.append(stderr.fileHandleForReading.readDataToEndOfFile(), error: true)
                     let (out, err) = output.snapshot()
-                    if finished.terminationStatus == 0 {
+                    if cancel.isSet {
+                        // 취소로 종료한 경우는 실패가 아니라 취소로 알린다.
+                        continuation.resume(throwing: CancellationError())
+                    } else if finished.terminationStatus == 0 {
                         continuation.resume(returning: out)
                     } else {
                         let message = String(decoding: err.isEmpty ? out : err, as: UTF8.self)
                         continuation.resume(throwing: ProviderError.cliFailed(String(message.suffix(400))))
                     }
                 }
-                do {
-                    try process.run()
-                } catch {
+                // 이미 취소됐으면 실행하지 않는다. 실행과 취소 표시는 같은 잠금 안에서 순서를 정해, 취소된 프로세스가 끝까지 도는 일을 막는다.
+                let started = cancel.runUnlessCancelled {
+                    do {
+                        try process.run()
+                        return nil
+                    } catch {
+                        return error
+                    }
+                }
+                switch started {
+                case .cancelled:
+                    process.terminationHandler = nil
+                    continuation.resume(throwing: CancellationError())
+                case .failed(let error):
                     process.terminationHandler = nil
                     continuation.resume(throwing: ProviderError.cliFailed(error.localizedDescription))
+                case .started:
+                    break
                 }
             }
         } onCancel: {
-            if process.isRunning { process.terminate() }
+            cancel.set { if process.isRunning { process.terminate() } }
+        }
+    }
+}
+
+/// 프로세스 실행과 취소의 순서를 맞추는 잠금 플래그
+private final class CancelFlag: @unchecked Sendable {
+    enum Start { case started, cancelled, failed(Error) }
+
+    private let lock = NSLock()
+    private var cancelled = false
+
+    var isSet: Bool { lock.withLock { cancelled } }
+
+    /// 취소 표시를 하고, 이미 실행 중이면 `stop`을 부른다.
+    func set(_ stop: () -> Void) {
+        lock.withLock {
+            cancelled = true
+            stop()
+        }
+    }
+
+    func runUnlessCancelled(_ run: () -> Error?) -> Start {
+        lock.withLock {
+            if cancelled { return .cancelled }
+            if let error = run() { return .failed(error) }
+            return .started
         }
     }
 }

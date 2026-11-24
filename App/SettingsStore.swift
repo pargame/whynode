@@ -43,6 +43,9 @@ final class SettingsStore {
 
     private(set) var ai: AISettings?
 
+    /// 앱 전체 AI 요청 관리(동시 한도 · 취소 · 이번 실행 사용량)
+    @ObservationIgnored let requests = AIRequestCenter()
+
     /// 시뮬레이션 조절값 (SPEC 2.6). 프로젝트와 상관없이 앱 전체에서 유지한다.
     var physics: PhysicsSettings = .default {
         didSet { UserDefaults.standard.set(try? JSONEncoder().encode(physics), forKey: Self.physicsKey) }
@@ -102,6 +105,14 @@ final class SettingsStore {
         customProjectFolder = UserDefaults.standard.string(forKey: Self.projectFolderKey)
         let savedScale = UserDefaults.standard.double(forKey: Self.textScaleKey)
         if Self.textScaleRange.contains(savedScale) { textScale = savedScale }
+        #if os(macOS)
+        // 앱을 끌 때 agy 상시 연결 프로세스도 정리한다.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated {
+                if let client = self?.acpClient { Task { await client.shutdown() } }
+            }
+        }
+        #endif
     }
 
     func save(_ settings: AISettings, apiKey: String?) throws {

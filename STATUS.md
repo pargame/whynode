@@ -13,7 +13,9 @@ App (SwiftUI 문서 앱)
 ├ CanvasParts       애니메이션되는 선 · 프레임 타이머 · 트랙패드 스크롤 이동 · ⌫ 삭제 키 (macOS)
 ├ NodeBubble        노드 (원 → 포커스 시 아래로 넓어지는 카드). 본문(NodeBubbleBody)은 화면 배율을 모르는 Equatable 하위 뷰라 확대 · 축소 중에는 테두리 · 빛만 다시 그림
 ├ AnswerView        답변 서식 블록 그리기
-├ AIController      요청 → 검증 → 문서 반영, 동시 요청 한도
+├ AIController      창별 요청 → 검증 → 문서 반영, 쓸모없어진 요청 끊기(reconcile), 사용량 측정
+├ AIRequestCenter   앱 전체 동시 한도(취소 가능한 대기열) · 진행 중 요청 목록 · 이번 실행 사용량, 종료 시 일괄 취소
+├ AIStatusBar       맵 왼쪽 아래 AI 상태 막대(요청 수 · 프로젝트 토큰 · 자세히)
 ├ WhyNodeDocument   파일 읽기/쓰기 · 실행 취소 · 진행 중 요청(inFlight)
 ├ SettingsStore     AI 설정 · 물리 조절값 · 글자 크기 · 저장 위치, 프로바이더 생성, agy 공유 연결
 ├ ProjectFiles      새 프로젝트 선저장 · 새 프로젝트 메뉴 (macOS)
@@ -23,7 +25,8 @@ App (SwiftUI 문서 앱)
 └ SnapshotRenderer  디버그용 화면 PNG 렌더
 
 WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
-├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3 이전 (SPEC 7), 시작 화면용 요약(ProjectPreview)
+├ Model / Codec     .whynode 구조 · 저장 형식 · v2→v3→v4 이전 (SPEC 7), 시작 화면용 요약(ProjectPreview)
+├ Usage             TokenUsage · UsageMeter(TaskLocal 수집기, 프로바이더가 응답 사용량을 보고)
 ├ MindMap           노드 생성 · 상태 전환 · 편집 규칙 (SPEC 2~3)
 ├ Integrity         열 때 무결성 복구 (SPEC 7.5)
 ├ Layout            새 노드 초기 자리 (부채꼴)
@@ -49,6 +52,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 * **실행 취소와 AI 요청**: AI 답변도 Undo 단계입니다. 되돌린 결과에 진행 중 요청(`WhyNodeDocument.inFlight`)이 없는 대기 노드가 생기면 `interruptPending`으로 "중단됨" 오류 상태로 바꿔 다시 시도할 수 있게 합니다.
 * **새 프로젝트 선저장**: `ProjectCreator`가 항상 `ProjectFiles.create`로 저장 위치(`SettingsStore.projectFolder`, 기본 `~/Documents/WhyNode`, 설정에서 변경 · `project.folder`)에 `새 프로젝트.whynode`를 먼저 쓴 뒤 `openDocument(at:)`로 엽니다(이름 없는 문서 경로 없음). 시작 화면 · 파일 > 새 프로젝트(⌘N, `NewProjectCommands`)가 같은 경로를 씁니다. macOS 전용. 루트 주제 입력 · 수정 시 `ProjectFiles.renameToTopic`이 자동 이름(`새 프로젝트`, 이전 주제, 뒤 번호 포함)일 때만 `NSDocument.move(to:)`로 파일 이름을 주제로 바꿉니다.
 * **화면 언어**: 원문은 영어 키(코드 리터럴), 번역은 `App/ko.lproj/Localizable.strings` · `Packages/WhyNodeCore/Sources/WhyNodeCore/Resources/ko.lproj/Localizable.strings`(코어는 `L(...)` = `String(localized:bundle: .module)`). 실행 취소 이름은 `WhyNodeDocument.perform(_: LocalizedStringResource)`. `SettingsStore.language`(기본 English, `app.language`)를 시작할 때 앱 도메인 `AppleLanguages`에 넣어 적용하고, 바꾸면 `relaunch()`로 다시 켭니다. 새 문구를 넣으면 ko 문자열 파일에도 같은 키(보간은 `%@` · `%lld`)를 추가합니다. 버튼 문구에는 말줄임표(…)를 쓰지 않습니다.
+* **요청 수명 (SPEC 6.6)**: 요청은 0.3초 지연 → `AIRequestCenter.acquire`(취소 가능 대기열) → 프로바이더 호출 순서로, `UsageMeter.$collector.withValue`로 재시도 포함 사용량을 모아 `center.record`(이번 실행) · `WhyNodeDocument.addUsage`(프로젝트 누적, Undo 없음, `markEdited`로 저장 표시)에 더합니다. `MapScreen.onChange(of: document.map)` → `AIController.reconcile`가 노드 상태 · 질문이 요청 당시와 다른 요청을 끊고, 창이 닫히면 `cancelAll`. `CLIProcess.run`은 잠금 플래그로 실행 · 취소 순서를 맞춰 취소 시 `CancellationError`를 던집니다. 실행 취소로 되살린 상태에서도 `project.usage`는 현재 값을 유지합니다(`keepUsage`).
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값 · 글자 크기 · 저장 위치 · 언어는 UserDefaults(`ai.settings`, `physics.settings`, `text.scale`, `project.folder`, `app.language`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
 
@@ -56,11 +60,11 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 
 | 대상 | 방법 |
 | :--- | :--- |
-| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (57개) |
+| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (64개) |
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
-| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>`(언어는 `defaults write com.pargame.whynode app.language ko|en`) → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음). `nodes-large-*`는 글자 1.5배, 맨 오른쪽 노드는 호버 빛, `cards-*`는 시작 화면 프로젝트 카드 |
+| 화면 모양 | 디버그 빌드 실행 파일에 `--render-snapshots <폴더>`(언어는 `defaults write com.pargame.whynode app.language ko|en`) → 라이트 · 다크 PNG 생성 후 확인 (창을 띄우지 않음). `nodes-large-*`는 글자 1.5배, 맨 오른쪽 노드는 호버 빛, `cards-*`는 시작 화면 프로젝트 카드, `status-*`는 AI 상태 막대 |
 | 앱 실행 | `open WhyNode.app` (빌드 결과 바로가기). 이미 켜져 있으면 ⌘Q 후 다시 열어야 새 빌드가 뜸 |
 
 모든 빌드 명령에는 `DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer`를 붙입니다. 이 Xcode는 다른 작업(언리얼)과 공유하므로 `xcode-select`는 바꾸지 않습니다.
@@ -90,7 +94,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: 시작 화면 프로젝트 카드(저장 위치 바꾸면 목록이 바뀌는지), 도구 막대 `프로젝트` 버튼으로 돌아가기. 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
+1. **앱 화면 실사용 확인**: 추가 질문 클릭 → ⌘Z 반복 시 상태 막대 요청 수가 바로 0이 되고 토큰이 늘지 않는지, 상태 막대 숫자 · 자세히 화면. 시작 화면 프로젝트 카드(저장 위치 바꾸면 목록이 바뀌는지), 도구 막대 `프로젝트` 버튼으로 돌아가기. 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세** (SPEC은 목표 설계, 아래는 아직 코드에 없음)

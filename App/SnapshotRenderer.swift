@@ -18,6 +18,7 @@ enum SnapshotRenderer {
                 render(scheme: name == "dark" ? .dark : .light, textScale: 1.5, to: directory.appendingPathComponent("nodes-large-\(name).png"))
                 renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
                 renderCards(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("cards-\(name).png"))
+                renderStatus(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("status-\(name).png"))
             }
         }
         exit(0)
@@ -45,6 +46,21 @@ enum SnapshotRenderer {
         ]
         let content = HStack(spacing: 14) {
             ForEach(samples) { ProjectCard(project: $0) {}.frame(width: 200) }
+        }
+        .padding(32)
+        .background(Theme.canvas)
+        .environment(\.colorScheme, scheme)
+        write(content, to: url)
+    }
+
+    /// AI 상태 막대 (연결됨 · 연결 안 됨)
+    private static func renderStatus(scheme: ColorScheme, to url: URL) {
+        let center = AIRequestCenter()
+        let doc = ObjectIdentifier(center)
+        let usage = TokenUsage(inputTokens: 9_820, outputTokens: 2_480, costUSD: 0.083, requests: 5)
+        let content = VStack(alignment: .leading, spacing: 12) {
+            AIStatusBar(center: center, document: doc, projectUsage: usage, connection: "Anthropic Claude · My CLI")
+            AIStatusBar(center: center, document: doc, projectUsage: .zero, connection: nil)
         }
         .padding(32)
         .background(Theme.canvas)

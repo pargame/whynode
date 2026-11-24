@@ -126,3 +126,24 @@
 "Testing connection… CLI can take tens of seconds." = "연결 테스트 중… CLI는 수십 초 걸릴 수 있습니다.";
 "Connected" = "연결 성공";
 "Sample questions: %@" = "받은 예시 질문: %@";
+
+/* AI 상태 막대 */
+"%lld running" = "%lld개 요청 중";
+"%lld queued" = "%lld개 대기";
+"Not connected" = "연결 안 됨";
+"Ready" = "준비됨";
+"%@ tokens" = "%@ 토큰";
+"This Project" = "이 프로젝트";
+"This Session" = "이번 실행";
+"Last Request" = "마지막 요청";
+"Type" = "종류";
+"Answer" = "답변";
+"Suggestions" = "추가 질문";
+"Input" = "입력";
+"Output" = "출력";
+"Requests" = "요청";
+"Cost" = "비용";
+"Context" = "맥락";
+"%lld characters" = "%lld자";
+"Time" = "시간";
+"Cost appears only when the provider reports it. Usage of requests cancelled midway may not be counted." = "비용은 프로바이더가 알려 줄 때만 표시됩니다. 도중에 끊긴 요청의 사용량은 빠질 수 있습니다.";

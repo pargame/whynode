@@ -23,6 +23,8 @@ struct AISetupView: View {
     @State private var cliPath: String?
     @State private var cliChecked = false
     @State private var testState: TestState = .idle
+    /// 진행 중인 연결 테스트. 설정을 바꾸거나 다시 누르거나 화면을 닫으면 끊는다(실제 요청이라 토큰이 든다).
+    @State private var testTask: Task<Void, Never>?
     @State private var loadingModels = false
     @State private var modelError: String?
     @State private var cliModels: [CLIModel] = []
@@ -150,10 +152,11 @@ struct AISetupView: View {
         .padding(20)
         .frame(minWidth: 520, minHeight: 440)
         .onAppear(perform: loadCurrent)
+        .onDisappear { cancelTest() }
         .onChange(of: provider) { resetForChange(); checkCLI() }
         .onChange(of: connection) { resetForChange(); checkCLI() }
-        .onChange(of: model) { testState = .idle }
-        .onChange(of: apiKey) { testState = .idle }
+        .onChange(of: model) { cancelTest() }
+        .onChange(of: apiKey) { cancelTest() }
         .task(id: apiKey) {
             // 입력이 멈추면 모델 목록을 자동으로 불러온다.
             guard connection == .apiKey, !apiKey.isEmpty else { return }
@@ -299,7 +302,7 @@ struct AISetupView: View {
     }
 
     private func resetForChange() {
-        testState = .idle
+        cancelTest()
         models = []
         cliModels = []
         customModel = false
@@ -351,18 +354,28 @@ struct AISetupView: View {
     }
 
     private func runTest() {
+        testTask?.cancel()
         testState = .running
         let draft = draft
         let key = apiKey
-        Task {
+        testTask = Task {
             do {
                 let provider = try settings.makeProvider(draft, apiKey: key)
                 let samples = try await ConnectionTest.run(provider)
+                // 끊긴 테스트의 늦은 결과가 지금 상태를 덮지 않게 한다.
+                guard !Task.isCancelled else { return }
                 testState = .passed(samples)
             } catch {
+                guard !Task.isCancelled, !(error is CancellationError) else { return }
                 testState = .failed(error.localizedDescription)
             }
         }
+    }
+
+    private func cancelTest() {
+        testTask?.cancel()
+        testTask = nil
+        testState = .idle
     }
 
     private func save() {

@@ -190,17 +190,20 @@ public struct ProjectMeta: Codable, Equatable, Sendable {
     public var id: WID
     public var createdAt: Date
     public var updatedAt: Date
+    /// 이 프로젝트에서 쓴 AI 사용량 누적 (SPEC 7.4). 실행 취소로 되돌아가지 않는다.
+    public var usage: TokenUsage
 
-    public init(id: WID = WID(), createdAt: Date, updatedAt: Date) {
+    public init(id: WID = WID(), createdAt: Date, updatedAt: Date, usage: TokenUsage = .zero) {
         self.id = id
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.usage = usage
     }
 }
 
 /// `.whynode` 파일의 최상위 구조 (SPEC 7.3)
 public struct WhyNodeFile: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 3
+    public static let currentSchemaVersion = 4
 
     public var schemaVersion: Int
     public var project: ProjectMeta

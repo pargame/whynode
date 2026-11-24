@@ -42,6 +42,15 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
         change(&map)
     }
 
+    /// 실행 취소 없이 바꾼 내용을 저장 대상으로 표시한다. 화면(MapScreen)이 창의 NSDocument로 연결한다.
+    var markEdited: (() -> Void)?
+
+    /// AI 사용량을 프로젝트 누적에 더한다. 실행 취소에 쌓지 않고 저장 대상으로만 표시한다.
+    func addUsage(_ usage: TokenUsage) {
+        map.addUsage(usage)
+        markEdited?()
+    }
+
     /// 변경을 적용하고 실행 취소를 등록한다. 등록이 곧 문서 변경 표시가 되어 자동 저장이 일어난다.
     /// `actionName`은 편집 메뉴의 실행 취소 이름이다. 앱 언어로 번역된다.
     func perform(_ actionName: LocalizedStringResource, undoManager: UndoManager?, _ change: (inout MindMap) -> Void) {
@@ -59,6 +68,8 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
                 // 되돌린 상태의 대기 노드는 요청이 없으면 영영 기다리므로, 다시 시도할 수 있게 중단 상태로 바꾼다.
                 var restored = previous
                 restored.interruptPending(except: document.inFlight)
+                // 사용량은 실제로 쓴 만큼이라 되돌리지 않는다.
+                restored.keepUsage(current.file.project.usage)
                 document.map = restored
                 document.registerUndo(restoring: current, actionName: actionName, undoManager: undoManager)
             }

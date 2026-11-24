@@ -125,4 +125,37 @@ struct ACPTests {
         await client.shutdown()
     }
 }
+
+@Suite("사용량 · 취소")
+struct UsageAndCancelTests {
+    @Test func CLI_응답의_사용량을_수집한다() async throws {
+        let output = """
+        {"type":"result","is_error":false,"result":"","total_cost_usd":0.02,"usage":{"input_tokens":100,"cache_creation_input_tokens":10,"cache_read_input_tokens":5,"output_tokens":40},"structured_output":{"suggestions":["a","b","c"]}}
+        """
+        let collector = UsageCollector()
+        _ = try UsageMeter.$collector.withValue(collector) {
+            try CLIProvider.extract(SuggestResponse.self, from: Data(output.utf8), usable: { !$0.suggestions.isEmpty })
+        }
+        #expect(collector.total == TokenUsage(inputTokens: 115, outputTokens: 40, costUSD: 0.02, requests: 1))
+    }
+
+    @Test func 취소하면_자식_프로세스를_멈추고_취소로_끝난다() async throws {
+        let started = ContinuousClock.now
+        let task = Task { try await CLIProcess.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["30"]) }
+        try await Task.sleep(for: .milliseconds(200))
+        task.cancel()
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(ContinuousClock.now - started < .seconds(5))
+    }
+
+    @Test func 이미_취소된_작업은_프로세스를_실행하지_않는다() async throws {
+        let task = Task {
+            withUnsafeCurrentTask { $0?.cancel() }
+            return try await CLIProcess.run(URL(fileURLWithPath: "/bin/sleep"), arguments: ["30"])
+        }
+        let started = ContinuousClock.now
+        await #expect(throws: CancellationError.self) { try await task.value }
+        #expect(ContinuousClock.now - started < .seconds(2))
+    }
+}
 #endif

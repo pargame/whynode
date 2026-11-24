@@ -135,7 +135,8 @@ public struct MindMap: Equatable, Sendable {
     /// 질문 수정: 질문과 답변이 어긋나지 않도록 답변 관련 값과 미사용 추가 질문을 비운다.
     public mutating func editQuestion(_ id: WID, to question: String, now: Date = Date()) {
         let trimmed = question.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard self[id] != nil, !trimmed.isEmpty else { return }
+        // 그대로 확인만 누르면 아무것도 바꾸지 않는다(답변을 지우고 다시 요청하지 않는다).
+        guard let node = self[id], !trimmed.isEmpty, trimmed != node.question else { return }
         update(id, now: now) {
             $0.question = trimmed
             $0.answer = nil
@@ -181,8 +182,9 @@ public struct MindMap: Equatable, Sendable {
     }
 
     /// 추가 질문 다시 받기 결과: 사용된 항목은 남기고 미사용 항목만 교체한다. 노드 상태는 바꾸지 않는다.
+    /// 답변이 있는(done) 노드에만 반영해, 질문 수정 · 다시 받기 중에 늦게 온 결과가 붙지 않게 한다.
     public mutating func replaceSuggestions(_ id: WID, with texts: [String], now: Date = Date()) {
-        guard self[id] != nil else { return }
+        guard self[id]?.status == .done else { return }
         update(id, now: now) { node in
             node.suggestions = node.suggestions.filter { $0.usedBy != nil } + texts.map { Suggestion(text: $0) }
         }
@@ -247,6 +249,18 @@ public struct MindMap: Equatable, Sendable {
             file.nodes[i].position.x = point.x
             file.nodes[i].position.y = point.y
         }
+    }
+
+    // 사용량
+
+    /// AI 사용량을 누적한다. 내용 수정이 아니므로 수정 시각은 바꾸지 않는다.
+    public mutating func addUsage(_ usage: TokenUsage) {
+        file.project.usage += usage
+    }
+
+    /// 실행 취소로 이전 상태를 되살릴 때 사용량은 지금 값을 유지한다.
+    public mutating func keepUsage(_ usage: TokenUsage) {
+        file.project.usage = usage
     }
 
     // 내부

@@ -40,12 +40,23 @@ struct CodecTests {
 
     @Test func 상위_스키마_버전은_열지_않는다() throws {
         var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
-        object["schemaVersion"] = 4
+        object["schemaVersion"] = 5
         let data = try JSONSerialization.data(withJSONObject: object)
-        #expect(throws: CodecError.unsupportedSchemaVersion(4)) { try WhyNodeCodec.decode(data) }
+        #expect(throws: CodecError.unsupportedSchemaVersion(5)) { try WhyNodeCodec.decode(data) }
         object["schemaVersion"] = 0
         let old = try JSONSerialization.data(withJSONObject: object)
         #expect(throws: CodecError.invalidSchemaVersion(0)) { try WhyNodeCodec.decode(old) }
+    }
+
+    @Test func v3_문서는_사용량을_0으로_채워_연다() throws {
+        var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
+        object["schemaVersion"] = 3
+        var project = object["project"] as! [String: Any]
+        project["usage"] = nil
+        object["project"] = project
+        let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.project.usage == .zero)
+        #expect(decoded.schemaVersion == WhyNodeFile.currentSchemaVersion)
     }
 
     @Test func 시작_화면_요약은_루트_주제와_노드_수를_읽는다() throws {
@@ -196,6 +207,35 @@ struct MindMapTests {
         map.setTextScale(map.rootId, .nan, now: t0)
         #expect(map.root.textScale == 1)
         map.setTextScale(map.rootId, 1.5, now: t0)
+        #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
+    }
+
+    @Test func 질문을_그대로_두고_확인하면_아무것도_바꾸지_않는다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        answered(&map, map.rootId)
+        let before = map
+        map.editQuestion(map.rootId, to: "  주제 ", now: t0.addingTimeInterval(5))
+        #expect(map == before)
+    }
+
+    @Test func 늦게_온_추가_질문은_답변이_있는_노드에만_붙는다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        map.replaceSuggestions(map.rootId, with: ["늦게 온 질문"], now: t0)
+        #expect(map.root.suggestions.isEmpty)
+        answered(&map, map.rootId)
+        map.replaceSuggestions(map.rootId, with: ["새 질문"], now: t0)
+        #expect(map.root.suggestions.map(\.text) == ["새 질문"])
+    }
+
+    @Test func 사용량은_누적되고_저장된다() throws {
+        var map = MindMap.new(now: t0)
+        let before = map.file.project.updatedAt
+        map.addUsage(TokenUsage(inputTokens: 100, outputTokens: 20, costUSD: 0.01))
+        map.addUsage(TokenUsage(inputTokens: 50, outputTokens: 5))
+        #expect(map.file.project.usage == TokenUsage(inputTokens: 150, outputTokens: 25, costUSD: 0.01, requests: 2))
+        #expect(map.file.project.updatedAt == before)
         #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
     }
 

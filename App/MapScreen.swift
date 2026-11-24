@@ -39,6 +39,10 @@ struct MapScreen: View {
                 nodeStack(node)
             }
         }
+        .overlay(alignment: .bottomLeading) {
+            AIStatusBar(center: settings.requests, document: ObjectIdentifier(document), projectUsage: map.file.project.usage, connection: settings.ai?.summary)
+                .padding(16)
+        }
         .overlay(alignment: .bottomTrailing) {
             PhysicsControl(settings: physicsBinding, isRunning: canvas.isRunning, onToggle: togglePhysics)
                 .padding(16)
@@ -74,6 +78,8 @@ struct MapScreen: View {
                 .environment(settings)
         }
         .onAppear {
+            ai.center = settings.requests
+            document.markEdited = { markDocumentEdited() }
             updateProvider()
             if !settings.isConfigured {
                 showSettings = true
@@ -83,6 +89,8 @@ struct MapScreen: View {
         }
         .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
         .onChange(of: settings.ai) { updateProvider() }
+        // 실행 취소 · 삭제 · 질문 수정으로 쓸모가 없어진 요청은 바로 끊는다.
+        .onChange(of: document.map) { ai.reconcile(document) }
         .onChange(of: map.nodes.count) { old, new in
             // 자동 정리 중에 실행 취소 · 삭제로 노드가 줄면, 되돌린 문서에 정리 좌표를 덮어쓰지 않도록 결과 없이 멈춘다.
             if new < old, canvas.isSimulating, !canvas.isRunning {
@@ -93,7 +101,10 @@ struct MapScreen: View {
         }
         // 핀치 도중 포커스가 바뀌면 제스처가 끝 신호 없이 취소될 수 있어 핀치 중 값을 비운다.
         .onChange(of: focusedId) { canvas.textPinch = nil }
-        .onDisappear { finishPhysics() }
+        .onDisappear {
+            finishPhysics()
+            ai.cancelAll(document)
+        }
     }
 
     // 노드와 추가 질문
@@ -271,7 +282,7 @@ struct MapScreen: View {
             Button("Refresh Suggestions") {
                 ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager)
             }
-            .disabled(node.status != .done)
+            .disabled(node.status != .done || ai.suggesting.contains(node.id))
             Button("Regenerate Answer") { retry(node.id) }
                 .disabled(node.status == .pending)
             Button("Edit Question") { ask(.edit(node.id), initial: node.question) }

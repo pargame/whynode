@@ -114,6 +114,10 @@ public enum WhyNodeCodec {
                 return node
             }
         }
+        if version < 4, var project = result["project"] as? [String: Any], project["usage"] == nil {
+            project["usage"] = ["inputTokens": 0, "outputTokens": 0, "costUSD": 0, "requests": 0]
+            result["project"] = project
+        }
         result["schemaVersion"] = WhyNodeFile.currentSchemaVersion
         return result
     }
@@ -163,7 +167,8 @@ extension WhyNodeCodec {
 /// `additionalProperties: false`와 필수 필드 규칙을 검사한다 (SPEC 7.1).
 enum SchemaGuard {
     static let file: Set<String> = ["schemaVersion", "project", "rootId", "nodes"]
-    static let project: Set<String> = ["id", "createdAt", "updatedAt"]
+    static let project: Set<String> = ["id", "createdAt", "updatedAt", "usage"]
+    static let usage: Set<String> = ["inputTokens", "outputTokens", "costUSD", "requests"]
     static let node: Set<String> = [
         "id", "parentId", "question", "answer", "summary", "status", "error",
         "suggestions", "refs", "position", "collapsed", "textScale", "generation", "createdAt", "updatedAt",
@@ -177,6 +182,7 @@ enum SchemaGuard {
         try keys(object, file, L("document"))
         if let project = object["project"] as? [String: Any] {
             try keys(project, Self.project, "project")
+            if let usage = project["usage"] as? [String: Any] { try keys(usage, Self.usage, "project.usage") }
         }
         for (index, value) in (object["nodes"] as? [Any] ?? []).enumerated() {
             guard let node = value as? [String: Any] else { continue }
