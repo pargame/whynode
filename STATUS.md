@@ -54,6 +54,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 * **화면 언어**: 원문은 영어 키(코드 리터럴), 번역은 `App/ko.lproj/Localizable.strings` · `Packages/WhyNodeCore/Sources/WhyNodeCore/Resources/ko.lproj/Localizable.strings`(코어는 `L(...)` = `String(localized:bundle: .module)`). 실행 취소 이름은 `WhyNodeDocument.perform(_: LocalizedStringResource)`. `SettingsStore.language`(기본 English, `app.language`)를 시작할 때 앱 도메인 `AppleLanguages`에 넣어 적용하고, 바꾸면 `relaunch()`로 다시 켭니다. 새 문구를 넣으면 ko 문자열 파일에도 같은 키(보간은 `%@` · `%lld`)를 추가합니다. 버튼 문구에는 말줄임표(…)를 쓰지 않습니다.
 * **요청 수명 (SPEC 6.6)**: 요청은 `AIRequestCenter.acquire`(취소 가능 대기열) → 프로바이더 호출 순서로, `UsageMeter.$collector.withValue`로 재시도 포함 사용량을 모아 `center.record`(이번 실행) · `WhyNodeDocument.addUsage`(프로젝트 누적, Undo 없음, `markEdited`로 저장 표시)에 더합니다. `MapScreen.onChange(of: document.map)` → `AIController.reconcile`가 노드 상태 · 질문이 요청 당시와 다른 요청을 끊고, 창이 닫히면 `cancelAll`. `CLIProcess.run`은 잠금 플래그로 실행 · 취소 순서를 맞춰 취소 시 `CancellationError`를 던집니다. 실행 취소로 되살린 상태에서도 `project.usage`는 현재 값을 유지합니다(`keepUsage`). 도중에 끊긴 요청의 사용량은 집계되지 않습니다: claude는 프로세스를 종료하면 결과 JSON이 없고, agy는 `session/cancel` 뒤 `{"stopReason":"cancelled"}`만 돌려주고 `usage`를 주지 않습니다(2026-11-24 실측).
 * **실행 취소 금지**: `UndoCommands`(편집 메뉴 실행 취소 · 다시 실행 교체)가 `FocusedValues.documentUndo.busy`(그 문서에 `AIRequestCenter` 요청이 있으면 true)일 때 버튼을 끄고, 아니면 `NSApp.sendAction(undo:/redo:)`로 응답 체인에 맡깁니다. 메뉴 제목은 문서 `undoManager.undoMenuItemTitle`. 삭제도 `MapScreen.isAwaitingAI(inBranchOf:)`가 가지 안에 요청 중인 노드가 있으면 막습니다.
+* **추가 질문 칩**: `MindMap.addSuggestions`가 새 질문을 미사용 맨 앞에 쌓고 `maxOpenSuggestions`(12)로 자릅니다. 칩 목록은 `ChipList`(6개 초과 시 ScrollView, 높이는 칩 평균 × 6), 트랙패드 스크롤은 `ScrollPanMonitor`가 스크롤 영역 위에서는 넘깁니다. 직접 질문은 `MapScreen.bottomRow`의 인라인 입력(`composingFor` · `composeFocused`), 알림창 입력은 질문 수정 · 주제 입력에만 씁니다.
 * **설정 저장**: 회사 · 연결 방식 · 모델 · 물리 조절값 · 글자 크기 · 저장 위치 · 언어는 UserDefaults(`ai.settings`, `physics.settings`, `text.scale`, `project.folder`, `app.language`), API 키는 Keychain(`com.pargame.whynode.apikey`).
 * **AI 호출 방식(현재)**: agy는 앱 실행 동안 `agy acp --agent whynode --gemini-dir <임시 빈 폴더>`를 하나 띄워 두고(시작 화면에서 미리 연결), 노드 요청마다 새 세션을 열고 닫습니다. 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`, 도구 없음, 본문 = 시스템 프롬프트)은 연결할 때마다 새로 씁니다. claude는 시작 비용이 작아 요청마다 `claude -p`를 1회 실행합니다. 공유 연결은 `SettingsStore`가 소유합니다.
 
@@ -61,7 +62,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 
 | 대상 | 방법 |
 | :--- | :--- |
-| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (65개) |
+| 코어 로직 | `cd Packages/WhyNodeCore && swift test` (66개) |
 | 실제 CLI 연결 | `WHYNODE_LIVE_CLI=claude swift test --filter 실제_CLI` (실제 사용량 발생) |
 | 답변 서식 실측 | `WHYNODE_LIVE_ANSWER=claude` 또는 `agy swift test --filter 실제_답변_서식` (실제 답변과 블록 해석 결과 출력) |
 | agy 상시 연결 | `WHYNODE_LIVE_ACP=1 [WHYNODE_LIVE_ACP_MODEL=모델] swift test --filter 상시_연결` (2회 연속 요청 시간 · 토큰 사용량 출력) |
@@ -95,7 +96,7 @@ WhyNodeCore (화면 없는 로직, 단위 테스트 대상)
 
 ## 다음 할 일
 
-1. **앱 화면 실사용 확인**: 답을 기다리는 동안 편집 메뉴 실행 취소 · 다시 실행이 꺼지는지(`UndoCommands`, 다른 창 입력칸의 ⌘Z는 그대로인지), 상태 막대 숫자 · 자세히 화면. 시작 화면 프로젝트 카드(저장 위치 바꾸면 목록이 바뀌는지), 도구 막대 `프로젝트` 버튼으로 돌아가기. 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
+1. **앱 화면 실사용 확인**: 직접 질문 칩이 입력란으로 넓어지는 움직임, 추가 질문 7개 이상일 때 트랙패드 스크롤(캔버스 이동 대신 목록 스크롤), 카드의 다시 답변 버튼. 답을 기다리는 동안 편집 메뉴 실행 취소 · 다시 실행이 꺼지는지(`UndoCommands`, 다른 창 입력칸의 ⌘Z는 그대로인지), 상태 막대 숫자 · 자세히 화면. 시작 화면 프로젝트 카드(저장 위치 바꾸면 목록이 바뀌는지), 도구 막대 `프로젝트` 버튼으로 돌아가기. 설정에서 언어 바꾸고 다시 켜기, 메뉴 · 시스템 창 언어. 새 프로젝트가 ~/Documents/WhyNode에 바로 만들어지고 끌 때 묻지 않는지, ⌘N도 같은지, 저장 위치 변경, 도구 막대 AI 설정 시트의 닫기 버튼, 주제 입력 시 파일 이름이 주제로 바뀌는지. 자동 정리 뒤 앱을 바로 닫았다 열어도 새 노드 위치가 저장되는지(`updateChangeCount` 경로). 펼친 노드 위 핀치가 화면 확대 대신 글자 크기만 바꾸는지, ⌘0 · 컨텍스트 메뉴 되돌리기, 추가 질문 연달아 고르기(포커스 유지), 맨 아래 줄 `직접 질문…` · `다른 질문 3개` 반반 칩, 노드 호버 빛, 새 노드 생성 시 주변 자동 정리(겹침 해소 · 펼친 카드와는 원 크기로만 충돌), ⌫ 삭제(입력창에서는 글자만 지워지는지), 확대 · 축소 시 테두리 굵기 고정. agy 격리 연결 · claude 캐시 끄기 적용 후 앱에서 실제로 답변 · 추가 질문이 잘 오는지. 화면 갱신 구조 변경(`CanvasModel`) 후 시뮬레이션 · 화면 이동 · 노드 끌기 · 포커스 애니메이션이 예전처럼 움직이는지.
 2. **디자인 전면 개편(예정)**: 주인이 나중에 한 번에 갈아엎을 예정. 그 전까지는 기능 · 가독성 위주로만 손댄다. 화면 움직임은 스냅샷으로 확인할 수 없어 실제 사용 피드백으로 다듬는다.
 3. **시뮬레이션 손맛**: 기본 조절값 · 패널 펼침 방식은 실제 사용 피드백으로 다듬는다. 반발력은 모든 쌍 계산이라 노드가 수백 개를 넘으면 Barnes-Hut로 바꾼다(SPEC 8.4).
 4. **미구현 명세** (SPEC은 목표 설계, 아래는 아직 코드에 없음)

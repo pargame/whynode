@@ -222,11 +222,25 @@ struct MindMapTests {
     @Test func 늦게_온_추가_질문은_답변이_있는_노드에만_붙는다() throws {
         var map = MindMap.new(now: t0)
         map.setRootQuestion("주제", now: t0)
-        map.replaceSuggestions(map.rootId, with: ["늦게 온 질문"], now: t0)
+        map.addSuggestions(map.rootId, ["늦게 온 질문"], now: t0)
         #expect(map.root.suggestions.isEmpty)
-        answered(&map, map.rootId)
-        map.replaceSuggestions(map.rootId, with: ["새 질문"], now: t0)
-        #expect(map.root.suggestions.map(\.text) == ["새 질문"])
+        answered(&map, map.rootId, suggestions: ["처음 질문"])
+        map.addSuggestions(map.rootId, ["새 질문"], now: t0)
+        #expect(map.root.suggestions.map(\.text) == ["새 질문", "처음 질문"])
+    }
+
+    @Test func 추가_질문은_최대_개수까지_쌓이고_사용된_질문은_남는다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        answered(&map, map.rootId, suggestions: ["Q0"])
+        let child = try unwrap(map.addChild(of: map.rootId, suggestion: map.root.suggestions[0].id, now: t0))
+        for round in 1...5 {
+            map.addSuggestions(map.rootId, (1...3).map { "R\(round)-\($0)" }, now: t0)
+        }
+        let open = map.root.suggestions.filter { $0.usedBy == nil }
+        #expect(open.count == MindMap.maxOpenSuggestions)
+        #expect(open.first?.text == "R5-1")
+        #expect(map.root.suggestions.contains { $0.usedBy == child })
     }
 
     @Test func 사용량은_누적되고_저장된다() throws {

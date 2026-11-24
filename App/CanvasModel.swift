@@ -203,3 +203,29 @@ struct EdgeLayer: View {
         return items
     }
 }
+
+/// 추가 질문 칩 목록. `maxVisible`개를 넘으면 그 높이까지만 보여 주고 위아래로 스크롤한다.
+struct ChipList<Content: View>: View {
+    let count: Int
+    let maxVisible: Int
+    let spacing: CGFloat
+    @ViewBuilder let content: Content
+
+    @State private var contentHeight: CGFloat = 0
+
+    var body: some View {
+        let stack = VStack(spacing: spacing) { content }
+        if count > maxVisible {
+            ScrollView(.vertical) {
+                stack
+                    .padding(.vertical, 4)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { contentHeight = $0 }
+            }
+            .scrollIndicators(.automatic)
+            // 칩 높이의 평균으로 `maxVisible`개 높이를 정한다.
+            .frame(height: contentHeight > 0 ? contentHeight / CGFloat(count) * CGFloat(maxVisible) : 300)
+        } else {
+            stack
+        }
+    }
+}

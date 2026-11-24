@@ -103,10 +103,10 @@ final class AIController {
                     return
                 }
                 if isAutomatic {
-                    document.applyAIResult { $0.replaceSuggestions(id, with: kept) }
+                    document.applyAIResult { $0.addSuggestions(id, kept) }
                 } else {
                     document.perform("Refresh Suggestions", undoManager: undoManager) {
-                        $0.replaceSuggestions(id, with: kept)
+                        $0.addSuggestions(id, kept)
                     }
                 }
             } catch is CancellationError {

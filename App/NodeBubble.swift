@@ -139,6 +139,18 @@ private struct NodeBubbleBody: View, Equatable {
                 // 분량은 답변 서식 제한(SPEC 6.5)으로 묶여 있어 카드가 무한히 길어지지 않는다.
                 AnswerView(markdown: answer, scale: textScale)
             }
+            if node.status == .done {
+                // 답변이 마음에 들지 않으면 다시 받는다. 받는 동안 이전 답변은 그대로 보이고, 실패해도 남는다.
+                HStack {
+                    Spacer()
+                    Button(action: onRetry) {
+                        Label("Regenerate Answer", systemImage: "arrow.clockwise")
+                            .font(.scaled(.caption, textScale))
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.secondary)
+                }
+            }
             if node.status == .pending || isSuggesting {
                 ProgressView().controlSize(.small)
             }

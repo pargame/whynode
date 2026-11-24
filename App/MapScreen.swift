@@ -16,6 +16,10 @@ struct MapScreen: View {
     @State private var canvas = CanvasModel()
     /// 포커스는 최대 하나이며, 포커스된 노드만 펼쳐진다.
     @State private var focusedId: WID?
+    /// 직접 질문 입력란이 열린 노드와 입력 중인 글
+    @State private var composingFor: WID?
+    @State private var composeText = ""
+    @FocusState private var composeFocused: Bool
     @State private var prompt: PromptRequest?
     @State private var promptText = ""
     @State private var importError: String?
@@ -105,7 +109,12 @@ struct MapScreen: View {
             }
         }
         // 핀치 도중 포커스가 바뀌면 제스처가 끝 신호 없이 취소될 수 있어 핀치 중 값을 비운다.
-        .onChange(of: focusedId) { canvas.textPinch = nil }
+        .onChange(of: focusedId) {
+            canvas.textPinch = nil
+            if composingFor != nil, composingFor != focusedId { cancelCompose() }
+        }
+        // 직접 질문 입력란에서 빠져나갔는데 쓴 글이 없으면 닫는다.
+        .onChange(of: composeFocused) { if !composeFocused, composeText.isEmpty, composingFor != nil { cancelCompose() } }
         .onDisappear {
             finishPhysics()
             ai.cancelAll(document)
@@ -175,28 +184,75 @@ struct MapScreen: View {
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
     private static let chipSpacing: CGFloat = 8
     private static let chipPadding: CGFloat = 14
-    /// 추가 질문 칩 글자 영역의 최대 폭. 마지막 줄의 반쪽 칩 두 개를 합친 폭과 같다.
+    /// 추가 질문 칩 글자 영역의 최대 폭. 맨 아래 줄 반쪽 칩 두 개를 합친 폭과 같다.
     private static let chipTextMaxWidth = NodeBubble.expandedWidth - 40
-    private static let halfChipTextWidth = (chipTextMaxWidth + 2 * chipPadding - chipSpacing) / 2 - 2 * chipPadding
+    private static let chipRowWidth = chipTextMaxWidth + 2 * chipPadding
+    private static let halfChipTextWidth = (chipRowWidth - chipSpacing) / 2 - 2 * chipPadding
+    /// 이보다 많으면 추가 질문 목록을 스크롤한다.
+    private static let maxVisibleChips = 6
 
-    /// 추가 질문은 한 줄에 하나씩, 맨 아래 줄만 `직접 질문…`과 `다른 질문 3개`로 반씩 나눈다 (SPEC 2.3).
+    /// 추가 질문은 한 줄에 하나씩(많으면 스크롤), 맨 아래 줄만 `직접 질문`과 `다른 질문 3개`로 반씩 나눈다 (SPEC 2.3).
     private func suggestionChips(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
-        VStack(spacing: Self.chipSpacing) {
-            ForEach(node.suggestions.filter { $0.usedBy == nil }) { suggestion in
-                chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
-            }
-            let suggesting = ai.suggesting.contains(node.id)
-            HStack(spacing: Self.chipSpacing) {
-                chip((Text(Image(systemName: "plus.bubble")) + Text(verbatim: "  ") + Text("Ask Your Own")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
-                    ask(.custom(parent: node.id))
+        let open = node.suggestions.filter { $0.usedBy == nil }
+        return VStack(spacing: Self.chipSpacing) {
+            ChipList(count: open.count, maxVisible: Self.maxVisibleChips, spacing: Self.chipSpacing) {
+                ForEach(open) { suggestion in
+                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
                 }
+            }
+            bottomRow(for: node, textScale: textScale, zoom: zoom)
+        }
+    }
+
+    /// `직접 질문`을 누르면 그 칩이 줄 전체로 넓어지며 입력란이 되고, `다른 질문 3개`는 오른쪽으로 밀려 사라진다.
+    private func bottomRow(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
+        let composing = composingFor == node.id
+        let suggesting = ai.suggesting.contains(node.id)
+        return HStack(spacing: Self.chipSpacing) {
+            Group {
+                if composing {
+                    HStack(spacing: 8) {
+                        TextField("Ask your own question", text: $composeText)
+                            .textFieldStyle(.plain)
+                            .focused($composeFocused)
+                            .onSubmit { submitCompose(parent: node.id) }
+                            #if os(macOS)
+                            .onExitCommand { cancelCompose() }
+                            #endif
+                        Button { submitCompose(parent: node.id) } label: { Image(systemName: "arrow.up.circle.fill") }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(Color.accentColor)
+                            .disabled(composeText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                } else {
+                    (Text(Image(systemName: "plus.bubble")) + Text(verbatim: "  ") + Text("Ask Your Own"))
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .font(.scaled(.callout, textScale))
+            .frame(width: composing ? Self.chipRowWidth - 2 * Self.chipPadding : Self.halfChipTextWidth)
+            .padding(.horizontal, Self.chipPadding)
+            .padding(.vertical, 9)
+            .layeredFill(Capsule(), tint: Color.accentColor.opacity(composing ? 0.06 : 0.14))
+            .overlay(Capsule().stroke(Color.accentColor.opacity(0.6), lineWidth: (composing ? 1.5 : 1) / zoom))
+            .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
+            .contentShape(Capsule())
+            .onTapGesture { if !composing { startCompose(node.id) } }
+
+            if !composing {
                 chip((Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
                     ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
                 }
                 .disabled(suggesting)
                 .opacity(suggesting ? 0.5 : 1)
+                .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .frame(width: Self.chipRowWidth, alignment: .leading)
+        .clipped()
     }
 
     /// `width`가 없으면 글자 길이에 맞춰 최대 폭까지 늘어나고, 있으면 그 폭으로 고정한다.
@@ -215,6 +271,41 @@ struct MapScreen: View {
                 .shadow(color: .black.opacity(0.15), radius: 4, y: 1)
         }
         .buttonStyle(.plain)
+    }
+
+    // 직접 질문 입력
+
+    private func startCompose(_ id: WID) {
+        composeText = ""
+        withAnimation(Self.focusSpring) { composingFor = id }
+        // 입력란이 생긴 뒤에 포커스를 준다.
+        DispatchQueue.main.async { composeFocused = true }
+    }
+
+    private func cancelCompose() {
+        composeFocused = false
+        composeText = ""
+        withAnimation(Self.focusSpring) { composingFor = nil }
+    }
+
+    private func submitCompose(parent: WID) {
+        let text = composeText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return }
+        cancelCompose()
+        createCustomChild(of: parent, question: text)
+    }
+
+    private func createCustomChild(of parent: WID, question: String) {
+        var created: WID?
+        withAnimation(Self.focusSpring) {
+            document.perform("Ask Your Own", undoManager: undoManager) {
+                created = $0.addCustomChild(of: parent, question: question)
+            }
+        }
+        if let created {
+            start(created, focus: false)
+            arrange(around: created)
+        }
     }
 
     /// 호버한 노드 자신과, 트리 선 · 참조선으로 바로 이어진 노드
@@ -282,14 +373,8 @@ struct MapScreen: View {
 
     @ViewBuilder
     private func menu(for node: Node) -> some View {
+        // 다른 곳에 버튼이 있는 기능(직접 질문 · 다른 질문 3개 · 다시 답변)은 메뉴에 두지 않는다.
         if node.status != .empty {
-            Button("Ask Your Own") { ask(.custom(parent: node.id)) }
-            Button("Refresh Suggestions") {
-                ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager)
-            }
-            .disabled(node.status != .done || ai.suggesting.contains(node.id))
-            Button("Regenerate Answer") { retry(node.id) }
-                .disabled(node.status == .pending)
             Button("Edit Question") { ask(.edit(node.id), initial: node.question) }
         }
         if node.textScale != 1 {
@@ -345,17 +430,6 @@ struct MapScreen: View {
             document.perform("Enter Topic", undoManager: undoManager) { $0.setRootQuestion(text) }
             renameProject(from: previous)
             if map.root.status == .pending { start(map.rootId) }
-        case .custom(let parent):
-            var created: WID?
-            withAnimation(Self.focusSpring) {
-                document.perform("Ask Your Own", undoManager: undoManager) {
-                    created = $0.addCustomChild(of: parent, question: text)
-                }
-            }
-            if let created {
-                start(created, focus: false)
-                arrange(around: created)
-            }
         case .edit(let id):
             let previous = map.root.question
             document.perform("Edit Question", undoManager: undoManager) { $0.editQuestion(id, to: text) }
@@ -614,13 +688,11 @@ struct MapScreen: View {
 
 enum PromptRequest: Equatable {
     case root
-    case custom(parent: WID)
     case edit(WID)
 
     var title: LocalizedStringKey {
         switch self {
         case .root: "What are you curious about?"
-        case .custom: "Ask Your Own"
         case .edit: "Edit Question"
         }
     }
@@ -628,7 +700,7 @@ enum PromptRequest: Equatable {
     var placeholder: LocalizedStringKey {
         switch self {
         case .root: "A topic or question (e.g. quantum mechanics)"
-        case .custom, .edit: "Enter a question"
+        case .edit: "Enter a question"
         }
     }
 }

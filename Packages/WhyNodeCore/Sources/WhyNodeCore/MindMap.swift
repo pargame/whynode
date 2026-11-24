@@ -200,12 +200,17 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
-    /// 추가 질문 다시 받기 결과: 사용된 항목은 남기고 미사용 항목만 교체한다. 노드 상태는 바꾸지 않는다.
-    /// 답변이 있는(done) 노드에만 반영해, 질문 수정 · 다시 받기 중에 늦게 온 결과가 붙지 않게 한다.
-    public mutating func replaceSuggestions(_ id: WID, with texts: [String], now: Date = Date()) {
-        guard self[id]?.status == .done else { return }
+    /// 노드에 쌓아 두는 미사용 추가 질문의 최대 개수 (SPEC 2.3)
+    public static let maxOpenSuggestions = 12
+
+    /// 추가 질문 다시 받기 결과: 새 질문을 미사용 목록 맨 앞에 쌓는다. 미사용이 최대 개수를 넘으면 가장 오래된 것부터 뺀다.
+    /// 사용된 항목은 그대로 둔다. 답변이 있는(done) 노드에만 반영해, 질문 수정 · 다시 받기 중에 늦게 온 결과가 붙지 않게 한다.
+    public mutating func addSuggestions(_ id: WID, _ texts: [String], now: Date = Date()) {
+        guard self[id]?.status == .done, !texts.isEmpty else { return }
         update(id, now: now) { node in
-            node.suggestions = node.suggestions.filter { $0.usedBy != nil } + texts.map { Suggestion(text: $0) }
+            let used = node.suggestions.filter { $0.usedBy != nil }
+            let open = texts.map { Suggestion(text: $0) } + node.suggestions.filter { $0.usedBy == nil }
+            node.suggestions = used + open.prefix(Self.maxOpenSuggestions)
         }
     }
 

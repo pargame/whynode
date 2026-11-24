@@ -96,6 +96,12 @@ struct ScrollPanMonitor: NSViewRepresentable {
                 guard let self, let window = self.window, event.window === window,
                       window.attachedSheet == nil
                 else { return event }
+                // 추가 질문 목록 같은 스크롤 영역 위에서는 그 영역이 스크롤되게 넘긴다.
+                if let content = window.contentView,
+                   let hit = content.hitTest(content.convert(event.locationInWindow, from: nil)),
+                   hit.enclosingScrollView != nil {
+                    return event
+                }
                 let factor: CGFloat = event.hasPreciseScrollingDeltas ? 1 : 12
                 self.onScroll?(CGSize(width: event.scrollingDeltaX * factor, height: event.scrollingDeltaY * factor))
                 return nil
