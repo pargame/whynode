@@ -87,6 +87,11 @@ struct MapScreen: View {
                 ask(.root)
             }
         }
+        .focusedSceneValue(\.documentUndo, DocumentUndoState(
+            busy: !settings.requests.requests(in: ObjectIdentifier(document)).isEmpty,
+            undoTitle: undoManager?.canUndo == true ? undoManager?.undoMenuItemTitle : nil,
+            redoTitle: undoManager?.canRedo == true ? undoManager?.redoMenuItemTitle : nil
+        ))
         .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
         .onChange(of: settings.ai) { updateProvider() }
         // 실행 취소 · 삭제 · 질문 수정으로 쓸모가 없어진 요청은 바로 끊는다.

@@ -17,9 +17,6 @@ final class AIController {
 
     static var notConfigured: String { String(localized: "AI isn't connected. Connect it in Settings on the toolbar.") }
 
-    /// 요청을 보내기 전에 잠깐 기다린다. 클릭 직후 실행 취소하면 호출 자체를 하지 않아 토큰이 들지 않는다.
-    static let startDelay = Duration.milliseconds(300)
-
     func requestAnswer(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?) {
         guard let center, let node = document.map[id], node.status == .pending,
               let context = ContextBuilder.answer(for: id, in: document.map)
@@ -44,7 +41,6 @@ final class AIController {
                 if center.request(for: key) == nil { document?.inFlight.remove(id) }
             }
             do {
-                try await Task.sleep(for: Self.startDelay)
                 try await center.acquire(requestID)
                 defer { center.release() }
                 let validated = try await measure(.answer, context: context, document: document) {
@@ -93,7 +89,6 @@ final class AIController {
                 suggesting.remove(id)
             }
             do {
-                try await Task.sleep(for: Self.startDelay)
                 try await center.acquire(requestID)
                 defer { center.release() }
                 let response = try await measure(.suggest, context: context, document: document) {

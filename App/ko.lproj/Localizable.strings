@@ -147,3 +147,7 @@
 "%lld characters" = "%lld자";
 "Time" = "시간";
 "Cost appears only when the provider reports it. Usage of requests cancelled midway may not be counted." = "비용은 프로바이더가 알려 줄 때만 표시됩니다. 도중에 끊긴 요청의 사용량은 빠질 수 있습니다.";
+
+/* 편집 메뉴 */
+"Undo" = "실행 취소";
+"Redo" = "실행 복귀";
