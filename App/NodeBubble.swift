@@ -47,24 +47,49 @@ struct NodeBubble: View, Equatable {
             .overlay {
                 // 프레넬 효과처럼 가장자리가 가장 밝고 안쪽으로 갈수록 옅어지는 빛. 테두리 굵기처럼 화면 배율과 상관없이 같게 보인다.
                 // 점선 빛은 참조선과 같은 박자(6 · 5)로 끊어, 어느 선으로 이어진 이웃인지 모양으로 구분한다.
-                ZStack {
-                    if glow != .none {
-                        let dash: [CGFloat] = glow == .dashed ? [6 / zoom, 5 / zoom] : []
-                        ZStack {
-                            shape.stroke(Theme.glow.opacity(0.7), style: StrokeStyle(lineWidth: 10 / zoom, dash: dash))
-                                .blur(radius: 6 / zoom)
-                                .clipShape(shape)
-                            shape.stroke(Theme.glow.opacity(0.9), style: StrokeStyle(lineWidth: 1.5 / zoom, lineCap: .round, dash: dash))
-                        }
-                        .transition(.opacity)
+                FadingGlow(value: glow == .none ? nil : glow) { kind in
+                    let dash: [CGFloat] = kind == .dashed ? [6 / zoom, 5 / zoom] : []
+                    ZStack {
+                        shape.stroke(Theme.glow.opacity(0.7), style: StrokeStyle(lineWidth: 10 / zoom, dash: dash))
+                            .blur(radius: 6 / zoom)
+                            .clipShape(shape)
+                        shape.stroke(Theme.glow.opacity(0.9), style: StrokeStyle(lineWidth: 1.5 / zoom, lineCap: .round, dash: dash))
                     }
                 }
                 .allowsHitTesting(false)
-                // 빛만 은은하게 켜고 끈다. 같은 순간의 화면 이동 등에는 애니메이션이 섞이지 않는다.
-                .animation(Theme.glowAnimation, value: glow)
             }
             .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
             .contentShape(shape)
+    }
+}
+
+/// 은은하게 켜고 끄는 빛. 꺼지는 동안에도 화면에서 빼지 않고 투명도만 줄여, 노드 · 선이 움직이면 함께 따라간다.
+/// 다 꺼진 뒤에 빼므로 흐림(blur) 비용은 빛나는 동안에만 든다. `value`가 nil이면 꺼짐이고, 꺼지는 동안에는 마지막 값으로 그린다.
+/// 전환(transition)으로 빼면 사라지는 중인 빛이 꺼지기 시작한 자리에 남아 잔상처럼 보인다.
+struct FadingGlow<Value: Equatable, Content: View>: View {
+    let value: Value?
+    @ViewBuilder let content: (Value) -> Content
+    @State private var shown: Value?
+    @State private var opacity = 0.0
+
+    var body: some View {
+        ZStack {
+            if let shown { content(shown).opacity(opacity) }
+        }
+        .onAppear {
+            shown = value
+            opacity = value == nil ? 0 : 1
+        }
+        .onChange(of: value) { _, new in
+            if let new {
+                shown = new
+                withAnimation(Theme.glowAnimation) { opacity = 1 }
+            } else {
+                withAnimation(Theme.glowAnimation) { opacity = 0 } completion: {
+                    if opacity == 0 { shown = nil }
+                }
+            }
+        }
     }
 }
 

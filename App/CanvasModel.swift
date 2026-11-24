@@ -147,7 +147,8 @@ struct EdgeLayer: View {
                     EdgeShape(from: edge.from, to: edge.to)
                         .stroke(edge.kind == .tree ? Theme.edge : Theme.refEdge, style: Self.style(edge.kind))
                         .opacity(edge.dimmed && !edge.highlighted ? 0.25 : 1)
-                    if edge.highlighted {
+                    // 빛은 투명도만 애니메이션한다. 선 끝점에 빛 애니메이션이 섞이면 화면 이동 중 빛이 뒤처진다.
+                    FadingGlow(value: edge.highlighted ? true : nil) { _ in
                         ZStack {
                             EdgeShape(from: edge.from, to: edge.to)
                                 .stroke(Theme.glow.opacity(0.6), style: StrokeStyle(lineWidth: 5, lineCap: .round))
@@ -155,12 +156,9 @@ struct EdgeLayer: View {
                             EdgeShape(from: edge.from, to: edge.to)
                                 .stroke(Theme.glow.opacity(0.9), style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: edge.kind == .tree ? [] : [6, 5]))
                         }
-                        .transition(.opacity)
                     }
                 }
                 .allowsHitTesting(false)
-                // 빛만 은은하게 켜고 끈다. 같은 순간의 화면 이동 등에는 애니메이션이 섞이지 않는다.
-                .animation(Theme.glowAnimation, value: edge.highlighted)
             }
         }
     }
