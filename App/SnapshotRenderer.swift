@@ -19,6 +19,7 @@ enum SnapshotRenderer {
                 renderPhysics(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("physics-\(name).png"))
                 renderCards(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("cards-\(name).png"))
                 renderStatus(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("status-\(name).png"))
+                renderStylePanel(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("style-\(name).png"))
             }
         }
         exit(0)
@@ -50,6 +51,18 @@ enum SnapshotRenderer {
         .padding(32)
         .background(Theme.canvas)
         .environment(\.colorScheme, scheme)
+        write(content, to: url)
+    }
+
+    /// 노드 편집 패널
+    private static func renderStylePanel(scheme: ColorScheme, to url: URL) {
+        var map = MindMap.new()
+        map.setRootQuestion("레이트레이싱")
+        map.setColors(map.rootId, fill: "green", text: nil)
+        let content = NodeStylePanel(node: map.root, canToggleBranch: true, canDelete: true, onTextScale: { _ in }, onSizeScale: { _ in }, onFill: { _ in }, onText: { _ in }, onToggleBranch: {}, onReset: {}, onDelete: {})
+            .padding(32)
+            .background(Theme.canvas)
+            .environment(\.colorScheme, scheme)
         write(content, to: url)
     }
 
@@ -106,6 +119,11 @@ enum SnapshotRenderer {
         let failed = map.addCustomChild(of: map.rootId, question: "BVH는 어떻게 만들까? 공간을 나누는 기준과 깊이는 어떻게 정하고, 동적으로 움직이는 물체가 많은 장면에서는 매 프레임 다시 만들어야 할까?", now: now)!
         map.failRequest(failed, message: "AI 응답 시간이 초과됐습니다.", now: now)
 
+        var styledMap = map
+        styledMap.setSizeScale(map.rootId, 1.4, now: now)
+        styledMap.setColors(map.rootId, fill: "blue", text: "#B00020", now: now)
+        let styled = styledMap.root
+
         func bubble(_ node: Node, focused: Bool, highlighted: Bool = false) -> some View {
             NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, isHighlighted: highlighted, onRetry: {})
         }
@@ -119,6 +137,8 @@ enum SnapshotRenderer {
             bubble(MindMap.new(now: now).root, focused: false)
             // 호버 빛
             bubble(map.root, focused: false, highlighted: true)
+            // 꾸민 노드: 크기 1.4, 노드 색 파랑, 글자 색 사용자 지정
+            bubble(styled, focused: false)
         }
         .overlay(alignment: .top) {
             Rectangle().fill(.red.opacity(0.5)).frame(height: 1).offset(y: NodeBubble.titleCenter)

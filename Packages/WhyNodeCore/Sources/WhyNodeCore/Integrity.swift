@@ -10,6 +10,8 @@ public enum IntegrityIssue: Equatable, Sendable {
     case danglingUsedByCleared(node: WID, suggestion: WID)
     case interruptedRequest(WID)
     case textScaleClamped(WID)
+    case sizeScaleClamped(WID)
+    case invalidColorCleared(WID)
 }
 
 /// 불러온 문서의 무결성 규칙을 검사하고 복구한다 (SPEC 7.5).
@@ -91,12 +93,26 @@ public enum Integrity {
             issues.append(.interruptedRequest(file.nodes[i].id))
         }
 
-        // 5. 글자 크기 배율은 허용 범위 안이어야 한다.
+        // 5. 글자 · 노드 크기 배율은 허용 범위 안이고, 색 값은 알려진 형식이어야 한다.
         for i in file.nodes.indices {
             let clamped = Node.clampedTextScale(file.nodes[i].textScale)
             if clamped != file.nodes[i].textScale {
                 file.nodes[i].textScale = clamped
                 issues.append(.textScaleClamped(file.nodes[i].id))
+            }
+            let size = Node.clampedSizeScale(file.nodes[i].sizeScale)
+            if size != file.nodes[i].sizeScale {
+                file.nodes[i].sizeScale = size
+                issues.append(.sizeScaleClamped(file.nodes[i].id))
+            }
+            // 알 수 없는 색 값은 기본 색으로 되돌린다.
+            if let fill = file.nodes[i].fillColor, !NodeColor.isValid(fill) {
+                file.nodes[i].fillColor = nil
+                issues.append(.invalidColorCleared(file.nodes[i].id))
+            }
+            if let text = file.nodes[i].textColor, !NodeColor.isValid(text) {
+                file.nodes[i].textColor = nil
+                issues.append(.invalidColorCleared(file.nodes[i].id))
             }
         }
 

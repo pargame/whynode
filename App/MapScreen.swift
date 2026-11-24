@@ -18,6 +18,11 @@ struct MapScreen: View {
     @State private var focusedId: WID?
     /// 직접 질문 입력란이 열린 노드와 입력 중인 글
     @State private var composingFor: WID?
+    /// 우클릭한 노드의 편집 패널과 그 위치(캔버스 좌표)
+    @State private var styleTarget: StyleTarget?
+    @State private var stylePanelSize = CGSize(width: 320, height: 260)
+    /// 패널이 열린 동안의 편집은 실행 취소 한 번으로 묶는다(연타 · 색 끌기).
+    @State private var styleUndoRegistered = false
     @State private var composeText = ""
     @FocusState private var composeFocused: Bool
     @State private var prompt: PromptRequest?
@@ -31,11 +36,19 @@ struct MapScreen: View {
     private var map: MindMap { document.map }
 
     var body: some View {
+        observed(presented(canvasArea))
+    }
+
+    /// 캔버스 · 노드 · 떠 있는 막대 · 패널과 입력 처리
+    private var canvasArea: some View {
         ZStack {
             Theme.canvas
                 .contentShape(Rectangle())
                 .gesture(panGesture)
-                .onTapGesture { focusedId = nil }
+                .onTapGesture {
+                    focusedId = nil
+                    closeStylePanel()
+                }
 
             EdgeLayer(map: map, canvas: canvas, isDimmed: isDimmed)
 
@@ -51,17 +64,32 @@ struct MapScreen: View {
             PhysicsControl(settings: physicsBinding, isRunning: canvas.isRunning, onToggle: togglePhysics)
                 .padding(16)
         }
+        .overlay { stylePanel }
         .onGeometryChange(for: CGSize.self) { $0.size } action: { canvas.viewSize = $0 }
         .gesture(zoomGesture)
         .animation(Self.focusSpring, value: focusedId)
         #if os(macOS)
-        .background(ScrollPanMonitor { [canvas] delta in
+        .background(ScrollPanMonitor { delta in
+            closeStylePanel()
             canvas.offset.width += delta.width
             canvas.offset.height += delta.height
         })
-        .background(DeleteKeyMonitor { deleteFocused() })
+        .background(CanvasEventMonitor(
+            onDelete: { deleteFocused() },
+            onEscape: {
+                guard styleTarget != nil else { return false }
+                closeStylePanel()
+                return true
+            },
+            onSecondaryClick: { openStylePanel(at: $0) }
+        ))
         .background(WindowReader { [canvas] in canvas.window = $0 })
         #endif
+    }
+
+    /// 도구 막대 · 알림 · 시트 · 메뉴 상태
+    private func presented(_ content: some View) -> some View {
+        content
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
             TextField(prompt?.placeholder ?? "", text: $promptText)
@@ -93,9 +121,25 @@ struct MapScreen: View {
             redoTitle: undoManager?.canRedo == true ? undoManager?.redoMenuItemTitle : nil
         ))
         .focusedSceneValue(\.resetFocusedNodeTextScale, focusedNodeHasTextScale ? { resetTextScale(focusedId) } : nil)
+    }
+
+    /// 설정 · 문서 · 실행 취소 · 포커스 변화에 반응
+    private func observed(_ content: some View) -> some View {
+        content
         .onChange(of: settings.ai) { updateProvider() }
         // 실행 취소 · 삭제 · 질문 수정으로 쓸모가 없어진 요청은 바로 끊는다.
-        .onChange(of: document.map) { ai.reconcile(document) }
+        .onChange(of: document.map) {
+            ai.reconcile(document)
+            // 실행 취소 · 삭제로 편집 중이던 노드가 사라지면 패널을 닫는다.
+            if let styleTarget, map[styleTarget.id] == nil { closeStylePanel() }
+        }
+        // 패널이 열린 채 실행 취소 · 다시 실행하면 다음 편집은 새 실행 취소 단계로 쌓는다.
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidUndoChange)) { note in
+            if (note.object as? UndoManager) === undoManager { styleUndoRegistered = false }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSUndoManagerDidRedoChange)) { note in
+            if (note.object as? UndoManager) === undoManager { styleUndoRegistered = false }
+        }
         .onChange(of: map.nodes.count) { old, new in
             // 자동 정리 중에 실행 취소 · 삭제로 노드가 줄면, 되돌린 문서에 정리 좌표를 덮어쓰지 않도록 결과 없이 멈춘다.
             if new < old, canvas.isSimulating, !canvas.isRunning {
@@ -143,7 +187,6 @@ struct MapScreen: View {
             .onHover { inside in hover(node.id, inside) }
             .onTapGesture { tap(node) }
             .gesture(moveGesture(for: node))
-            .contextMenu { menu(for: node) }
 
             if focused, node.status == .done {
                 suggestionChips(for: node, textScale: textScale, zoom: canvas.effectiveScale)
@@ -178,12 +221,21 @@ struct MapScreen: View {
     }
 
     /// AI가 만든 추가 질문 아래에 같은 모양의 직접 질문 칩을 둔다.
-    private static let chipSpacing: CGFloat = 8
-    private static let chipPadding: CGFloat = 14
+    static let chipSpacing: CGFloat = 8
+    static let chipPadding: CGFloat = 14
     /// 추가 질문 칩 글자 영역의 최대 폭. 맨 아래 줄 반쪽 칩 두 개를 합친 폭과 같다.
-    private static let chipTextMaxWidth = NodeBubble.expandedWidth - 40
-    private static let chipRowWidth = chipTextMaxWidth + 2 * chipPadding
-    private static let halfChipTextWidth = (chipRowWidth - chipSpacing) / 2 - 2 * chipPadding
+    /// 칩 폭은 노드 크기를 따라 펼친 카드 폭에 맞춘다.
+    private struct ChipMetrics {
+        let textMaxWidth: CGFloat
+        let rowWidth: CGFloat
+        let halfTextWidth: CGFloat
+
+        init(size: CGFloat) {
+            textMaxWidth = NodeBubble.expandedWidth * size - 40
+            rowWidth = textMaxWidth + 2 * MapScreen.chipPadding
+            halfTextWidth = (rowWidth - MapScreen.chipSpacing) / 2 - 2 * MapScreen.chipPadding
+        }
+    }
     /// 이보다 많으면 추가 질문 목록을 스크롤한다.
     private static let maxVisibleChips = 6
 
@@ -193,7 +245,7 @@ struct MapScreen: View {
         return VStack(spacing: Self.chipSpacing) {
             ChipList(count: open.count, maxVisible: Self.maxVisibleChips, spacing: Self.chipSpacing) {
                 ForEach(open) { suggestion in
-                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom) { pick(suggestion, of: node.id) }
+                    chip(Text(suggestion.text), textScale: textScale, zoom: zoom, metrics: ChipMetrics(size: node.sizeScale)) { pick(suggestion, of: node.id) }
                 }
             }
             bottomRow(for: node, textScale: textScale, zoom: zoom)
@@ -202,6 +254,7 @@ struct MapScreen: View {
 
     /// `직접 질문`을 누르면 그 칩이 줄 전체로 넓어지며 입력란이 되고, `다른 질문 3개`는 오른쪽으로 밀려 사라진다.
     private func bottomRow(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
+        let metrics = ChipMetrics(size: node.sizeScale)
         let composing = composingFor == node.id
         let suggesting = ai.suggesting.contains(node.id)
         let full = node.suggestions.filter { $0.usedBy == nil }.count >= MindMap.maxOpenSuggestions
@@ -230,7 +283,7 @@ struct MapScreen: View {
                 }
             }
             .font(.scaled(.callout, textScale))
-            .frame(width: composing ? Self.chipRowWidth - 2 * Self.chipPadding : Self.halfChipTextWidth)
+            .frame(width: composing ? metrics.rowWidth - 2 * Self.chipPadding : metrics.halfTextWidth)
             .padding(.horizontal, Self.chipPadding)
             .padding(.vertical, 9)
             .layeredFill(Capsule(), tint: Color.accentColor.opacity(composing ? 0.06 : 0.14))
@@ -241,7 +294,7 @@ struct MapScreen: View {
 
             if !composing {
                 // 미사용 추가 질문이 최대 개수면 더 받지 않는다(오래된 질문을 몰래 지우지 않는다).
-                chip((full ? Text("Up to \(MindMap.maxOpenSuggestions) questions") : Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                chip((full ? Text("Up to \(MindMap.maxOpenSuggestions) questions") : Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, metrics: metrics, width: metrics.halfTextWidth) {
                     ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
                 }
                 .disabled(suggesting || full)
@@ -249,19 +302,19 @@ struct MapScreen: View {
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
-        .frame(width: Self.chipRowWidth, alignment: .leading)
+        .frame(width: metrics.rowWidth, alignment: .leading)
         .clipped()
     }
 
     /// `width`가 없으면 글자 길이에 맞춰 최대 폭까지 늘어나고, 있으면 그 폭으로 고정한다.
-    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, width: CGFloat? = nil, action: @escaping () -> Void) -> some View {
+    private func chip(_ label: Text, textScale: Double, zoom: CGFloat, metrics: ChipMetrics, width: CGFloat? = nil, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             label
                 .font(.scaled(.callout, textScale))
                 .multilineTextAlignment(.center)
                 .lineLimit(2)
                 .frame(width: width)
-                .frame(maxWidth: width == nil ? Self.chipTextMaxWidth : nil)
+                .frame(maxWidth: width == nil ? metrics.textMaxWidth : nil)
                 .padding(.horizontal, Self.chipPadding)
                 .padding(.vertical, 9)
                 .layeredFill(Capsule(), tint: Color.accentColor.opacity(0.14))
@@ -335,6 +388,7 @@ struct MapScreen: View {
     // 동작
 
     private func tap(_ node: Node) {
+        closeStylePanel()
         // 시뮬레이션 중에는 노드가 펼쳐지면 배치가 흐트러지므로 포커스를 주지 않는다.
         guard !canvas.isRunning else { return }
         if node.status == .empty {
@@ -369,27 +423,80 @@ struct MapScreen: View {
         ai.requestAnswer(for: id, in: document, undoManager: undoManager)
     }
 
+    // 노드 편집 패널 (우클릭)
+
+    struct StyleTarget: Equatable {
+        let id: WID
+        let point: CGPoint
+    }
+
+    /// 마우스가 올라가 있는 노드를 우클릭하면 그 자리 옆에 패널을 연다. 노드가 아니면 이벤트를 넘긴다.
+    private func openStylePanel(at point: CGPoint) -> Bool {
+        guard !canvas.isRunning, let id = canvas.hoveredId, map[id] != nil else {
+            closeStylePanel()
+            return false
+        }
+        styleUndoRegistered = false
+        styleTarget = StyleTarget(id: id, point: point)
+        return true
+    }
+
+    private func closeStylePanel() {
+        guard styleTarget != nil else { return }
+        styleTarget = nil
+        styleUndoRegistered = false
+    }
+
     @ViewBuilder
-    private func menu(for node: Node) -> some View {
-        // 다른 곳에 버튼이 있는 기능(직접 질문 · 다른 질문 3개 · 다시 답변)은 메뉴에 두지 않는다.
-        // 질문 수정은 사실상 지우고 새로 묻는 것과 같아 두지 않는다.
-        if node.textScale != 1 {
-            Button("Reset Text Size") { resetTextScale(node.id) }
-        }
-        if node.id != map.rootId, !map.childIDs(of: node.id).isEmpty {
-            Button(node.collapsed ? "Expand Branch" : "Collapse Branch") {
-                document.perform(node.collapsed ? "Expand Branch" : "Collapse Branch", undoManager: undoManager) {
-                    $0.setCollapsed(node.id, !node.collapsed)
+    private var stylePanel: some View {
+        if let target = styleTarget, let node = map[target.id] {
+            NodeStylePanel(
+                node: node,
+                canToggleBranch: node.id != map.rootId && !map.childIDs(of: node.id).isEmpty,
+                canDelete: node.id != map.rootId && !isAwaitingAI(inBranchOf: node.id),
+                onTextScale: { value in editStyle { $0.setTextScale(node.id, value) } },
+                onSizeScale: { value in editStyle { $0.setSizeScale(node.id, value) } },
+                onFill: { value in editStyle { $0.setColors(node.id, fill: .some(value)) } },
+                onText: { value in editStyle { $0.setColors(node.id, text: .some(value)) } },
+                onToggleBranch: {
+                    closeStylePanel()
+                    document.perform(node.collapsed ? "Expand Branch" : "Collapse Branch", undoManager: undoManager) {
+                        $0.setCollapsed(node.id, !node.collapsed)
+                    }
+                },
+                onReset: { editStyle { $0.resetStyle(node.id) } },
+                onDelete: {
+                    closeStylePanel()
+                    document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(node.id) }
+                    if let focusedId, map[focusedId] == nil { self.focusedId = nil }
                 }
-            }
+            )
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { stylePanelSize = $0 }
+            .position(stylePanelPosition(near: target.point))
+            .transition(.opacity.combined(with: .scale(scale: 0.95)))
         }
-        if node.id != map.rootId {
-            Divider()
-            Button("Delete", role: .destructive) {
-                document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(node.id) }
-                if let focusedId, map[focusedId] == nil { self.focusedId = nil }
-            }
-            .disabled(isAwaitingAI(inBranchOf: node.id))
+    }
+
+    /// 누른 자리 오른쪽 아래에 두되, 창 밖으로 나가면 왼쪽 · 위로 옮긴다.
+    private func stylePanelPosition(near point: CGPoint) -> CGPoint {
+        let size = stylePanelSize
+        let margin: CGFloat = 8
+        var x = point.x + 16 + size.width / 2
+        if x + size.width / 2 > canvas.viewSize.width - margin { x = point.x - 16 - size.width / 2 }
+        x = min(max(x, size.width / 2 + margin), canvas.viewSize.width - size.width / 2 - margin)
+        let y = min(max(point.y + size.height / 2 - 20, size.height / 2 + margin), canvas.viewSize.height - size.height / 2 - margin)
+        return CGPoint(x: x, y: y)
+    }
+
+    /// 패널이 열린 동안 첫 편집만 실행 취소 단계로 등록하고, 이어지는 편집은 그 단계에 합친다.
+    private func editStyle(_ change: (inout MindMap) -> Void) {
+        if styleUndoRegistered {
+            document.applyWithoutUndo(change)
+            markDocumentEdited()
+        } else {
+            let before = map
+            document.perform("Edit Node Style", undoManager: undoManager, change)
+            if map != before { styleUndoRegistered = true }
         }
     }
 
@@ -442,7 +549,10 @@ struct MapScreen: View {
     /// 캔버스 끌기. 손을 떼면 빠르기만큼 더 미끄러지다 멈춘다.
     private var panGesture: some Gesture {
         DragGesture()
-            .onChanged { [canvas] value in canvas.livePan = value.translation }
+            .onChanged { value in
+                closeStylePanel()
+                canvas.livePan = value.translation
+            }
             .onEnded { [canvas] value in
                 withoutAnimation {
                     canvas.offset.width += value.translation.width
@@ -463,7 +573,8 @@ struct MapScreen: View {
     /// 핀치 확대 · 축소. 손가락 아래 지점을 기준으로 커지고 작아진다.
     private var zoomGesture: some Gesture {
         MagnifyGesture()
-            .onChanged { [canvas] value in
+            .onChanged { value in
+                closeStylePanel()
                 if canvas.zoomAnchor == nil { canvas.zoomAnchor = value.startLocation }
                 canvas.liveZoom = value.magnification
             }
@@ -534,6 +645,7 @@ struct MapScreen: View {
         if canvas.isSimulating { finishPhysics() }
         focusedId = nil
         canvas.textPinch = nil
+        closeStylePanel()
         canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics), manual: true)
         ticker.start { stepPhysics() }
     }

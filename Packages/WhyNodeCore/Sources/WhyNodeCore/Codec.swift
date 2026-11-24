@@ -114,6 +114,15 @@ public enum WhyNodeCodec {
                 return node
             }
         }
+        if version < 5, let nodes = result["nodes"] as? [Any] {
+            result["nodes"] = nodes.map { value -> Any in
+                guard var node = value as? [String: Any] else { return value }
+                if node["sizeScale"] == nil { node["sizeScale"] = 1 }
+                if node["fillColor"] == nil { node["fillColor"] = NSNull() }
+                if node["textColor"] == nil { node["textColor"] = NSNull() }
+                return node
+            }
+        }
         if version < 4, var project = result["project"] as? [String: Any], project["usage"] == nil {
             project["usage"] = ["inputTokens": 0, "outputTokens": 0, "costUSD": 0, "requests": 0]
             result["project"] = project
@@ -171,7 +180,7 @@ enum SchemaGuard {
     static let usage: Set<String> = ["inputTokens", "outputTokens", "costUSD", "requests"]
     static let node: Set<String> = [
         "id", "parentId", "question", "answer", "summary", "status", "error",
-        "suggestions", "refs", "position", "collapsed", "textScale", "generation", "createdAt", "updatedAt",
+        "suggestions", "refs", "position", "collapsed", "textScale", "sizeScale", "fillColor", "textColor", "generation", "createdAt", "updatedAt",
     ]
     static let suggestion: Set<String> = ["id", "text", "usedBy"]
     static let ref: Set<String> = ["nodeId", "reason"]

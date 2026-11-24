@@ -116,7 +116,7 @@ struct NodeLayer<Content: View>: View {
                     content(node)
                         .fixedSize()
                         .scaleEffect(scale, anchor: .top)
-                        .offset(y: -NodeBubble.titleCenter * scale)
+                        .offset(y: -NodeBubble.titleCenter * node.sizeScale * scale)
                 }
                 .position(canvas.screenPoint(of: node))
                 .zIndex(canvas.dragging?.id == node.id ? 3 : focusedId == node.id ? 2 : 0)

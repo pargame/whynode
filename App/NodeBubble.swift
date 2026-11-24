@@ -32,10 +32,11 @@ struct NodeBubble: View, Equatable {
     }
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
-    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail) }
+    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail, size: node.sizeScale) }
 
-    static func shape(expanded: Bool) -> RoundedRectangle {
-        RoundedRectangle(cornerRadius: expanded ? 22 : compactDiameter / 2, style: .continuous)
+    /// `size`는 노드 크기 배율. 원은 지름이 함께 커져 계속 원으로 보인다.
+    static func shape(expanded: Bool, size: Double) -> RoundedRectangle {
+        RoundedRectangle(cornerRadius: expanded ? 22 * size : compactDiameter * size / 2, style: .continuous)
     }
 
     /// 본문은 화면 배율을 모르는 하위 뷰로 두어, 확대 · 축소 중에는 테두리 · 빛만 다시 그린다.
@@ -79,20 +80,23 @@ private struct NodeBubbleBody: View, Equatable {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isSuggesting == rhs.isSuggesting && lhs.textScale == rhs.textScale
     }
 
-    /// 원 안에 들어가는 질문 줄 수. 기본 크기에서 4줄이 차지하는 높이를 넘지 않도록 글자가 커지면 줄인다.
-    private var compactLineLimit: Int { max(1, Int((4 / textScale).rounded(.down))) }
+    /// 원 안에 들어가는 질문 줄 수. 기본 크기에서 4줄 높이를 기준으로, 노드가 커지면 늘고 글자가 커지면 줄인다.
+    private var compactLineLimit: Int { max(1, Int((4 * size / textScale).rounded(.down))) }
 
     /// 원 안에서 보이는 질문(최대 4줄)의 높이. 펼쳐서 줄이 늘어도 이 값으로 위 여백을 정해 첫 줄이 움직이지 않는다.
     @State private var titleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
-    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail) }
+    private var size: CGFloat { node.sizeScale }
+    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail, size: size) }
+    /// 사용자가 고른 글자 색. 없으면 기본(주 · 보조 색)
+    private var textColor: Color? { Theme.nodeColor(node.textColor) }
 
     var body: some View {
         VStack(spacing: 12) {
             // 원에서는 정해진 줄 수까지만 보이고, 펼치면 질문 전체를 보여준다.
             title(lineLimit: showsDetail ? nil : compactLineLimit)
-                .foregroundStyle(node.question.isEmpty ? .secondary : .primary)
+                .foregroundStyle(node.question.isEmpty ? AnyShapeStyle(.secondary) : textColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
                 .background {
                     title(lineLimit: compactLineLimit)
                         .hidden()
@@ -113,12 +117,13 @@ private struct NodeBubbleBody: View, Equatable {
             }
         }
         // 질문의 중심이 원의 중심(위에서 70pt)에 오도록 위 여백을 맞춘다. 펼쳐도 같은 여백이라 질문이 움직이지 않는다.
-        .padding(.top, max(10, NodeBubble.titleCenter - titleHeight / 2))
+        .padding(.top, max(10, NodeBubble.titleCenter * size - titleHeight / 2))
         .padding(.bottom, showsDetail ? 18 : 0)
-        .frame(width: showsDetail ? NodeBubble.expandedWidth : NodeBubble.compactDiameter, alignment: .top)
-        .frame(minHeight: NodeBubble.compactDiameter, alignment: .top)
-        .frame(height: showsDetail ? nil : NodeBubble.compactDiameter, alignment: .top)
-        .layeredFill(shape, tint: Theme.tint(for: node.status))
+        .frame(width: (showsDetail ? NodeBubble.expandedWidth : NodeBubble.compactDiameter) * size, alignment: .top)
+        .frame(minHeight: NodeBubble.compactDiameter * size, alignment: .top)
+        .frame(height: showsDetail ? nil : NodeBubble.compactDiameter * size, alignment: .top)
+        // 사용자가 고른 노드 색이 상태 색(대기 노랑 · 오류 빨강)보다 우선하고, 상태는 테두리로 남는다.
+        .layeredFill(shape, tint: Theme.nodeColor(node.fillColor).map { $0.opacity(0.28) } ?? Theme.tint(for: node.status))
         .clipShape(shape)
     }
 
@@ -127,7 +132,7 @@ private struct NodeBubbleBody: View, Equatable {
             .font(.scaled(.callout, textScale, weight: .medium))
             .multilineTextAlignment(.center)
             .lineLimit(lineLimit)
-            .frame(width: NodeBubble.titleWidth)
+            .frame(width: NodeBubble.titleWidth * size)
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -137,7 +142,7 @@ private struct NodeBubbleBody: View, Equatable {
             if let answer = node.answer {
                 // 스크롤 영역은 크기를 스스로 정하지 못해 높이가 0으로 접히므로 쓰지 않는다.
                 // 분량은 답변 서식 제한(SPEC 6.5)으로 묶여 있어 카드가 무한히 길어지지 않는다.
-                AnswerView(markdown: answer, scale: textScale)
+                AnswerView(markdown: answer, scale: textScale, color: textColor)
             }
             if node.status == .done {
                 // 답변이 마음에 들지 않으면 다시 받는다. 받는 동안 이전 답변은 그대로 보이고, 실패해도 남는다.

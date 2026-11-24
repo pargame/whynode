@@ -151,3 +151,12 @@
 "Answering %lld" = "답변 생성 중 %lld";
 "AI not connected" = "AI 연결 안 됨";
 "Up to %lld questions" = "최대 %lld개";
+
+/* 노드 편집 패널 */
+"Node Size" = "노드 크기";
+"Node Color" = "노드 색";
+"Text Color" = "글자 색";
+"Reset Style" = "원래대로";
+"Default" = "기본";
+"Edit Node Style" = "노드 꾸미기";
+"Custom Color" = "직접 고르기";

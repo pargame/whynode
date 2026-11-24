@@ -25,7 +25,8 @@ public enum Layout {
             angle = base + offset
         }
         let ring = Double(index / 6)
-        let distance = childDistance + ring * 120
+        // 큰 부모는 그만큼 더 떨어뜨린다(기본 크기에서 240).
+        let distance = childDistance + (parent.sizeScale - 1) * ForceSimulation.nodeRadius + ring * 120
         return Position(x: parent.position.x + cos(angle) * distance, y: parent.position.y + sin(angle) * distance)
     }
 }

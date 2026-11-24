@@ -23,6 +23,25 @@ enum Theme {
     /// 호버 빛이 은은하게 켜지고 꺼지는 시간
     static let glowAnimation = Animation.easeInOut(duration: 0.45)
 
+    /// 노드 · 글자 색 값(`NodeColor`)을 색으로 바꾼다. 프리셋은 다크 · 라이트에 맞춰 바뀌는 시스템 색이다.
+    static func nodeColor(_ value: String?) -> Color? {
+        guard let value else { return nil }
+        if let preset = presetColor(value) { return preset }
+        guard let rgb = NodeColor.hex(value) else { return nil }
+        return Color(red: rgb.red, green: rgb.green, blue: rgb.blue)
+    }
+
+    static func presetColor(_ token: String) -> Color? {
+        switch token {
+        case "red": .red
+        case "orange": .orange
+        case "green": .green
+        case "blue": .blue
+        case "purple": .purple
+        default: nil
+        }
+    }
+
     /// 불투명 바탕 위에 겹치는 상태 색
     static func tint(for status: NodeStatus) -> Color {
         switch status {

@@ -133,4 +133,18 @@ struct PhysicsTests {
         #expect(pf.x == 600 && pf.y == 0)
         #expect(distance(pa, pb) >= 2 * ForceSimulation.nodeRadius)
     }
+
+    @Test func 큰_노드는_그만큼_더_떨어진다() throws {
+        var map = MindMap.new()
+        map.setRootQuestion("주제")
+        let a = map.addCustomChild(of: map.rootId, question: "A")!
+        map.move(a, to: (10, 0), pinned: false)
+        map.setSizeScale(map.rootId, 2)
+        var sim = ForceSimulation(map: map, settings: .default)
+        while sim.tick() {}
+        let root = try #require(sim.position(of: map.rootId))
+        let child = try #require(sim.position(of: a))
+        // 반지름 140(큰 루트) + 70 + 여백보다 가까울 수 없다.
+        #expect(distance(root, child) >= 140 + 70)
+    }
 }

@@ -61,6 +61,8 @@ public struct ForceSimulation: Sendable {
     private var position: [SIMD2<Double>] = []
     private var velocity: [SIMD2<Double>] = []
     private var fixed: [SIMD2<Double>?] = []
+    /// 노드별 반지름(기본 70 × 노드 크기)
+    private var radius: [Double] = []
     private var links: [(source: Int, target: Int, bias: Double)] = []
     private let rootId: WID
     /// 움직일 수 있는 노드. nil이면 루트를 뺀 전부이고, 값이 있으면 나머지는 제자리에 고정된 장애물이 된다 (SPEC 8.4 부분 계산).
@@ -120,6 +122,7 @@ public struct ForceSimulation: Sendable {
             }
         }
         ids = newIds
+        radius = map.nodes.map { Self.nodeRadius * $0.sizeScale }
         position = newPosition
         velocity = newVelocity
         fixed = newFixed
@@ -193,7 +196,7 @@ public struct ForceSimulation: Sendable {
             var d = (position[link.target] + velocity[link.target]) - (position[link.source] + velocity[link.source])
             if d == .zero { d = jitter(link.target) }
             let length = (d * d).sum().squareRoot()
-            let target = settings.linkDistance + 2 * Self.nodeRadius
+            let target = settings.linkDistance + radius[link.source] + radius[link.target]
             let k = (length - target) / length * alpha * strength
             let delta = d * k
             // 한쪽 끝이 고정이면 움직이는 쪽이 이동을 전부 맡는다. 고정된 쪽 몫은 어차피 버려진다.
@@ -230,10 +233,10 @@ public struct ForceSimulation: Sendable {
 
     /// 노드 원끼리 겹치지 않게 떼어 놓는다. 온도와 상관없이 항상 작동한다.
     private mutating func applyCollision(_ n: Int) {
-        let minDistance = 2 * (Self.nodeRadius + Self.collisionPadding)
         guard n > 1 else { return }
         for i in 0..<(n - 1) {
             for j in (i + 1)..<n {
+                let minDistance = radius[i] + radius[j] + 2 * Self.collisionPadding
                 var d = (position[j] + velocity[j]) - (position[i] + velocity[i])
                 let l2 = (d * d).sum()
                 guard l2 < minDistance * minDistance else { continue }

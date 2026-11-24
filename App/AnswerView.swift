@@ -5,6 +5,8 @@ import WhyNodeCore
 struct AnswerView: View {
     let markdown: String
     var scale: CGFloat = 1
+    /// 노드의 글자 색. 없으면 기본 색
+    var color: Color? = nil
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -22,7 +24,7 @@ struct AnswerView: View {
             }
         }
         .font(.scaled(.callout, scale))
-        .foregroundStyle(.primary)
+        .foregroundStyle(color.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 

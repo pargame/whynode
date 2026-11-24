@@ -40,9 +40,9 @@ struct CodecTests {
 
     @Test func 상위_스키마_버전은_열지_않는다() throws {
         var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
-        object["schemaVersion"] = 5
+        object["schemaVersion"] = 6
         let data = try JSONSerialization.data(withJSONObject: object)
-        #expect(throws: CodecError.unsupportedSchemaVersion(5)) { try WhyNodeCodec.decode(data) }
+        #expect(throws: CodecError.unsupportedSchemaVersion(6)) { try WhyNodeCodec.decode(data) }
         object["schemaVersion"] = 0
         let old = try JSONSerialization.data(withJSONObject: object)
         #expect(throws: CodecError.invalidSchemaVersion(0)) { try WhyNodeCodec.decode(old) }
@@ -57,6 +57,20 @@ struct CodecTests {
         let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
         #expect(decoded.project.usage == .zero)
         #expect(decoded.schemaVersion == WhyNodeFile.currentSchemaVersion)
+    }
+
+    @Test func v4_문서는_노드_크기와_색을_기본값으로_채워_연다() throws {
+        var object = try JSONSerialization.jsonObject(with: WhyNodeCodec.encode(MindMap.new(now: t0).file)) as! [String: Any]
+        object["schemaVersion"] = 4
+        object["nodes"] = (object["nodes"] as! [[String: Any]]).map { node in
+            var node = node
+            node["sizeScale"] = nil
+            node["fillColor"] = nil
+            node["textColor"] = nil
+            return node
+        }
+        let decoded = try WhyNodeCodec.decode(JSONSerialization.data(withJSONObject: object))
+        #expect(decoded.nodes.allSatisfy { $0.sizeScale == 1 && $0.fillColor == nil && $0.textColor == nil })
     }
 
     @Test func 시작_화면_요약은_루트_주제와_노드_수를_읽는다() throws {
@@ -267,6 +281,35 @@ struct MindMapTests {
         #expect(restored.root.status == .done)
         #expect(restored.root.answer == after.root.answer)
         #expect(restored[a]?.status == .pending)
+    }
+
+    @Test func 노드_크기와_색을_바꾸고_원래대로_되돌린다() throws {
+        var map = MindMap.new(now: t0)
+        let id = map.rootId
+        map.setSizeScale(id, 5, now: t0)
+        #expect(map.root.sizeScale == Node.sizeScaleRange.upperBound)
+        map.setColors(id, fill: "blue", text: "#112233", now: t0)
+        #expect(map.root.fillColor == "blue" && map.root.textColor == "#112233")
+        map.setColors(id, fill: "nope", now: t0)
+        #expect(map.root.fillColor == "blue")
+        map.setColors(id, fill: .some(nil), now: t0)
+        #expect(map.root.fillColor == nil && map.root.textColor == "#112233")
+        #expect(try WhyNodeCodec.decode(WhyNodeCodec.encode(map.file)) == map.file)
+        map.resetStyle(id, now: t0)
+        #expect(!map.root.hasCustomStyle)
+    }
+
+    @Test func 알_수_없는_색과_범위_밖_크기는_열_때_고친다() throws {
+        var map = MindMap.new(now: t0)
+        var file = map.file
+        file.nodes[0].fillColor = "#GGGGGG"
+        file.nodes[0].sizeScale = 9
+        let (fixed, issues) = Integrity.repair(file)
+        #expect(fixed.nodes[0].fillColor == nil)
+        #expect(fixed.nodes[0].sizeScale == Node.sizeScaleRange.upperBound)
+        #expect(issues.contains(.invalidColorCleared(map.rootId)))
+        map = MindMap(file: fixed)
+        #expect(map.root.sizeScale == 2)
     }
 
     @Test func 요청이_없는_대기_노드만_중단_상태가_된다() throws {

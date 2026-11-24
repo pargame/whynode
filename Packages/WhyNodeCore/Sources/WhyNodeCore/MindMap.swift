@@ -251,6 +251,37 @@ public struct MindMap: Equatable, Sendable {
         update(id, now: now) { $0.textScale = scale }
     }
 
+    /// 노드 크기를 바꾼다. 원 · 펼친 카드가 함께 커지고, 시뮬레이션 반지름에도 반영된다.
+    public mutating func setSizeScale(_ id: WID, _ scale: Double, now: Date = Date()) {
+        let scale = Node.clampedSizeScale(scale)
+        guard let node = self[id], node.sizeScale != scale else { return }
+        update(id, now: now) { $0.sizeScale = scale }
+    }
+
+    /// 노드 색 · 글자 색을 바꾼다. nil은 기본 색, 알 수 없는 값은 무시한다.
+    public mutating func setColors(_ id: WID, fill: String?? = nil, text: String?? = nil, now: Date = Date()) {
+        guard let node = self[id] else { return }
+        var next = node
+        if let fill { next.fillColor = fill.flatMap { NodeColor.isValid($0) ? $0 : node.fillColor } }
+        if let text { next.textColor = text.flatMap { NodeColor.isValid($0) ? $0 : node.textColor } }
+        guard next.fillColor != node.fillColor || next.textColor != node.textColor else { return }
+        update(id, now: now) {
+            $0.fillColor = next.fillColor
+            $0.textColor = next.textColor
+        }
+    }
+
+    /// 글자 크기 · 노드 크기 · 색을 모두 기본으로 되돌린다.
+    public mutating func resetStyle(_ id: WID, now: Date = Date()) {
+        guard let node = self[id], node.hasCustomStyle else { return }
+        update(id, now: now) {
+            $0.textScale = 1
+            $0.sizeScale = 1
+            $0.fillColor = nil
+            $0.textColor = nil
+        }
+    }
+
     /// 사용자가 직접 옮긴 노드는 자동 배치에서 제외한다.
     public mutating func move(_ id: WID, to point: (x: Double, y: Double), pinned: Bool = true, now: Date = Date()) {
         update(id, now: now) {
