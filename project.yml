@@ -3,7 +3,6 @@ options:
   bundleIdPrefix: com.pargame
   deploymentTarget:
     macOS: "26.0"
-    iOS: "26.0"
   createIntermediateGroups: true
 packages:
   WhyNodeCore:
@@ -16,7 +15,7 @@ settings:
 targets:
   WhyNode:
     type: application
-    supportedDestinations: [macOS, iOS]
+    supportedDestinations: [macOS]
     sources:
       - path: App
     dependencies:
@@ -27,7 +26,6 @@ targets:
         PRODUCT_NAME: WhyNode
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
-        TARGETED_DEVICE_FAMILY: "2"
         ENABLE_HARDENED_RUNTIME: NO
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
