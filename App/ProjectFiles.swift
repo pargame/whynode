@@ -12,7 +12,9 @@ enum ProjectFiles {
     }
 
     /// `map`을 `folder/name.whynode`로 저장하고 경로를 돌려준다. 같은 이름이 있으면 `name 2`, `name 3`…으로 피한다.
-    static let untitledName = "새 프로젝트"
+    static var untitledName: String { String(localized: "New Project") }
+    /// 언어를 바꿔도 예전 언어로 붙은 자동 이름을 알아보도록 두 언어 이름을 모두 둔다.
+    static let untitledNames = ["New Project", "새 프로젝트"]
 
     static func create(_ map: MindMap, name: String, in folder: URL) throws -> URL {
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -36,7 +38,7 @@ enum ProjectFiles {
     /// 파일 이름이 앱이 자동으로 붙인 이름인지. `새 프로젝트`나 이전 주제(뒤에 ` 2` 같은 번호 포함)면 자동 이름으로 본다.
     /// 사용자가 직접 바꾼 이름은 주제가 바뀌어도 건드리지 않는다.
     static func isAutoName(_ fileName: String, previousTopic: String) -> Bool {
-        let candidates = [untitledName, sanitized(previousTopic)]
+        let candidates = untitledNames + [untitledName, sanitized(previousTopic)]
         return candidates.contains { base in
             fileName == base || (fileName.hasPrefix(base + " ") && Int(fileName.dropFirst(base.count + 1)) != nil)
         }
@@ -81,7 +83,7 @@ struct NewProjectCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("새 프로젝트") {
+            Button("New Project") {
                 let creator = ProjectCreator(settings: settings, openDocument: openDocument)
                 Task { try? await creator.create() }
             }

@@ -37,7 +37,7 @@ struct PhysicsControl: View {
     private var header: some View {
         HStack(spacing: 4) {
             Button(action: onToggle) {
-                Label(isRunning ? "멈춤" : "시뮬레이션", systemImage: isRunning ? "stop.fill" : "atom")
+                Label(isRunning ? "Stop" : "Simulate", systemImage: isRunning ? "stop.fill" : "atom")
                     .contentTransition(.symbolEffect(.replace))
                     .padding(.horizontal, 12)
                     .padding(.vertical, 8)
@@ -54,7 +54,7 @@ struct PhysicsControl: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help(keepsOpen ? "조절값 접기" : "조절값 펼친 채로 두기")
+            .help(keepsOpen ? "Collapse controls" : "Keep controls open")
         }
         .font(.callout.weight(.medium))
         .padding(4)
@@ -62,22 +62,22 @@ struct PhysicsControl: View {
 
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            row("반발력", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.1)
-            row("장력", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.1)
-            row("링크 거리", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 2)
-            row("중심력", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
-            Text("루트는 고정됩니다. 링크 거리는 두 원 가장자리 사이의 선 길이입니다.")
+            row("Repulsion", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.1)
+            row("Tension", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.1)
+            row("Link Distance", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 2)
+            row("Gravity", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
+            Text("The root stays fixed. Link distance is the line length between the edges of two circles.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            Button("기본값으로 설정") { settings = .default }
+            Button("Reset to Defaults") { settings = .default }
                 .controlSize(.small)
                 .disabled(settings == .default)
                 .frame(maxWidth: .infinity)
         }
     }
 
-    private func row(_ title: String, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
+    private func row(_ title: LocalizedStringKey, value: Binding<Double>, range: ClosedRange<Double>, step: Double) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.caption.weight(.medium))
             HStack(spacing: 10) {

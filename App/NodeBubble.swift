@@ -107,7 +107,7 @@ private struct NodeBubbleBody: View, Equatable {
                 ProgressView().controlSize(.small)
             }
             if node.collapsed {
-                Label("접힘", systemImage: "chevron.right.circle")
+                Label("Collapsed", systemImage: "chevron.right.circle")
                     .font(.scaled(.caption, textScale))
                     .foregroundStyle(.secondary)
             }
@@ -123,7 +123,7 @@ private struct NodeBubbleBody: View, Equatable {
     }
 
     private func title(lineLimit: Int?) -> some View {
-        Text(node.question.isEmpty ? "주제를 입력하세요" : node.question)
+        (node.question.isEmpty ? Text("Enter a topic") : Text(verbatim: node.question))
             .font(.scaled(.callout, textScale, weight: .medium))
             .multilineTextAlignment(.center)
             .lineLimit(lineLimit)
@@ -143,12 +143,12 @@ private struct NodeBubbleBody: View, Equatable {
                 ProgressView().controlSize(.small)
             }
             if node.status == .error {
-                Text(node.error ?? "오류")
+                (node.error.map { Text(verbatim: $0) } ?? Text("Error"))
                     .font(.scaled(.caption, textScale))
                     .foregroundStyle(.red)
                     .multilineTextAlignment(.center)
                     .lineLimit(3)
-                Button("다시 시도", action: onRetry)
+                Button("Retry", action: onRetry)
                     .controlSize(.small)
             }
         }

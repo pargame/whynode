@@ -14,7 +14,7 @@ public enum IntegrityIssue: Equatable, Sendable {
 
 /// 불러온 문서의 무결성 규칙을 검사하고 복구한다 (SPEC 7.5).
 public enum Integrity {
-    public static let interruptedMessage = "중단됨"
+    public static var interruptedMessage: String { L("Interrupted") }
 
     public static func repair(_ input: WhyNodeFile) -> (file: WhyNodeFile, issues: [IntegrityIssue]) {
         var file = input

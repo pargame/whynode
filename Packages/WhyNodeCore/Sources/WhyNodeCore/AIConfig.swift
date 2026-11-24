@@ -44,9 +44,9 @@ public enum ProviderKind: String, Codable, CaseIterable, Identifiable, Sendable 
 
     public var apiKeyHelp: String {
         switch self {
-        case .google: "Google AI Studio(aistudio.google.com)에서 발급"
-        case .anthropic: "Anthropic Console(console.anthropic.com)에서 발급"
-        case .openai: "OpenAI Platform(platform.openai.com)에서 발급"
+        case .google: L("Get a key from Google AI Studio (aistudio.google.com)")
+        case .anthropic: L("Get a key from Anthropic Console (console.anthropic.com)")
+        case .openai: L("Get a key from OpenAI Platform (platform.openai.com)")
         }
     }
 }
@@ -66,9 +66,9 @@ public struct AISettings: Codable, Equatable, Sendable {
 
     public var summary: String {
         let method = switch connection {
-        case .apiKey: "API 키"
-        case .oauth: "공식 로그인"
-        case .cli: "내 CLI"
+        case .apiKey: L("API Key")
+        case .oauth: L("Official Sign-in")
+        case .cli: L("My CLI")
         }
         let modelText = model.isEmpty ? "" : " · \(model)"
         return "\(provider.displayName) · \(method)\(modelText)"
@@ -88,15 +88,15 @@ public enum ProviderError: Error, LocalizedError, Equatable {
 
     public var errorDescription: String? {
         switch self {
-        case .http(let status, let message): "AI 서버 오류 (\(status)): \(message)"
-        case .emptyResponse: "AI가 빈 응답을 보냈습니다."
-        case .unreadableResponse(let detail): "AI 응답을 해석하지 못했습니다: \(detail)"
-        case .cliNotFound(let tool): "\(tool) CLI를 찾지 못했습니다. 설치와 로그인을 확인해 주세요."
-        case .cliFailed(let message): "CLI 실행 실패: \(message)"
-        case .timeout: "AI 응답 시간이 초과됐습니다."
-        case .notSupported(let what): "\(what)은(는) 아직 지원하지 않습니다."
-        case .missingAPIKey: "API 키가 없습니다. 설정에서 입력해 주세요."
-        case .missingModel: "모델을 선택해 주세요."
+        case .http(let status, let message): L("AI server error (\(status)): \(message)")
+        case .emptyResponse: L("The AI sent an empty response.")
+        case .unreadableResponse(let detail): L("Couldn't read the AI response: \(detail)")
+        case .cliNotFound(let tool): L("Couldn't find the \(tool) CLI. Check that it's installed and signed in.")
+        case .cliFailed(let message): L("CLI failed: \(message)")
+        case .timeout: L("The AI took too long to respond.")
+        case .notSupported(let what): L("\(what) isn't supported yet.")
+        case .missingAPIKey: L("No API key. Enter one in Settings.")
+        case .missingModel: L("Choose a model.")
         }
     }
 }

@@ -46,30 +46,30 @@ struct AISetupView: View {
         VStack(alignment: .leading, spacing: 16) {
             if mode == .onboarding {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("AI 연결 설정").font(.title2.bold())
-                    Text("WhyNode가 답변과 추가 질문을 만들 때 쓸 AI를 고릅니다. 나중에 설정에서 언제든 바꿀 수 있습니다.")
+                    Text("AI Connection").font(.title2.bold())
+                    Text("Choose the AI WhyNode uses to write answers and suggestions. You can change it anytime in Settings.")
                         .foregroundStyle(.secondary)
                 }
             }
 
             Form {
-                Picker("AI 회사", selection: $provider) {
+                Picker("AI Provider", selection: $provider) {
                     ForEach(ProviderKind.allCases) { Text($0.displayName).tag($0) }
                 }
 
-                Picker("연결 방식", selection: $connection) {
+                Picker("Connection", selection: $connection) {
                     #if os(macOS)
-                    Text("내 CLI (구독 요금제)").tag(Connection.cli)
+                    Text("My CLI (subscription)").tag(Connection.cli)
                     #endif
-                    Text("API 키").tag(Connection.apiKey)
-                    Text("공식 로그인 (준비 중)").tag(Connection.oauth)
+                    Text("API Key").tag(Connection.apiKey)
+                    Text("Official Sign-in (coming soon)").tag(Connection.oauth)
                 }
 
                 switch connection {
                 case .cli: cliSection
                 case .apiKey: apiKeySection
                 case .oauth:
-                    Text("공식 로그인은 각 AI 회사에 WhyNode 앱 등록이 끝나면 지원합니다. 지금은 내 CLI 또는 API 키를 사용해 주세요.")
+                    Text("Official sign-in will be available once WhyNode is registered with each AI provider. For now, use your CLI or an API key.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 }
@@ -78,27 +78,42 @@ struct AISetupView: View {
 
             #if os(macOS)
             if mode == .settings {
+                @Bindable var settings = settings
                 Form {
-                    Section("프로젝트") {
-                        LabeledContent("저장 위치") {
+                    Section("General") {
+                        Picker("Language", selection: $settings.language) {
+                            ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
+                        }
+                        if settings.needsRestartForLanguage {
+                            HStack {
+                                Text("Restart WhyNode to apply the language.")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                Button("Restart Now") { settings.relaunch() }
+                            }
+                        }
+                    }
+                    Section("Projects") {
+                        LabeledContent("Save Location") {
                             HStack {
                                 Text(settings.projectFolder.path(percentEncoded: false))
                                     .lineLimit(1)
                                     .truncationMode(.middle)
                                     .foregroundStyle(.secondary)
-                                Button("변경…") { choosingFolder = true }
+                                Button("Change") { choosingFolder = true }
                                 if settings.customProjectFolder != nil {
-                                    Button("기본 위치") { settings.customProjectFolder = nil }
+                                    Button("Default Location") { settings.customProjectFolder = nil }
                                 }
                             }
                         }
-                        Text("새 프로젝트는 저장 위치에 바로 저장되고, 이후 자동 저장됩니다. 파일 이름은 첫 노드의 주제를 따릅니다.")
+                        Text("New projects are saved here right away and saved automatically afterward. The file name follows the first node's topic.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .formStyle(.grouped)
-                .frame(height: 120)
+                .frame(height: 210)
                 .fileImporter(isPresented: $choosingFolder, allowedContentTypes: [.folder]) { result in
                     if case .success(let url) = result {
                         settings.customProjectFolder = url.path(percentEncoded: false)
@@ -111,22 +126,22 @@ struct AISetupView: View {
 
             HStack {
                 if mode == .settings, let current = settings.ai {
-                    Text("현재: \(current.summary)").font(.caption).foregroundStyle(.secondary)
+                    Text("Current: \(current.summary)").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if mode == .onboarding {
-                    Button("나중에") { onFinish() }
+                    Button("Later") { onFinish() }
                 } else {
                     // 시트로 열렸을 때 닫을 방법이 Esc뿐이라 버튼을 둔다. 바뀐 AI 설정은 저장하지 않는다.
-                    Button("닫기") {
+                    Button("Close") {
                         onFinish()
                         dismiss()
                     }
                     .keyboardShortcut(.cancelAction)
                 }
-                Button("연결 테스트") { runTest() }
+                Button("Test Connection") { runTest() }
                     .disabled(!canTest || testState == .running)
-                Button(mode == .onboarding ? "시작하기" : "저장") { save() }
+                Button(mode == .onboarding ? "Get Started" : "Save") { save() }
                     .buttonStyle(.borderedProminent)
                     .disabled(!isPassed)
                     .keyboardShortcut(.defaultAction)
@@ -153,55 +168,55 @@ struct AISetupView: View {
     @ViewBuilder
     private var cliSection: some View {
         if !provider.supportsCLI {
-            Text("\(provider.cliDisplayName) 연동은 아직 지원하지 않습니다. API 키를 사용해 주세요.")
+            Text("\(provider.cliDisplayName) isn't supported yet. Please use an API key.")
                 .foregroundStyle(.secondary)
         } else if !cliChecked {
-            HStack { ProgressView().controlSize(.small); Text("\(provider.cliTool) 찾는 중…") }
+            HStack { ProgressView().controlSize(.small); Text("Looking for \(provider.cliTool)…") }
         } else if let cliPath {
             LabeledContent("CLI", value: cliPath)
-            Picker("모델", selection: cliModelSelection) {
-                Text("CLI 기본 모델").tag("")
+            Picker("Model", selection: cliModelSelection) {
+                Text("CLI Default Model").tag("")
                 ForEach(cliModels) { Text($0.name).tag($0.id) }
-                Text("직접 입력…").tag(Self.customTag)
+                Text("Custom").tag(Self.customTag)
             }
             if customModel {
-                TextField("모델 ID", text: $model)
+                TextField("Model ID", text: $model)
             }
             switch provider {
             case .anthropic:
-                Text("빠른 응답과 적은 사용량을 원하면 Haiku를 권장합니다.")
+                Text("For fast responses and lower usage, Haiku is recommended.")
                     .font(.caption).foregroundStyle(.secondary)
             case .google:
-                Text("앱이 켜져 있는 동안 agy와 연결을 유지합니다. 빠른 응답을 원하면 Gemini 3.8 Flash (Low)를 권장합니다.")
+                Text("WhyNode keeps a connection to agy while the app is open. For fast responses, Gemini 3.8 Flash (Low) is recommended.")
                     .font(.caption).foregroundStyle(.secondary)
             case .openai:
                 EmptyView()
             }
-            Text("이 Mac에서 \(provider.cliTool)에 로그인되어 있으면 그 계정의 구독 요금제를 그대로 씁니다. WhyNode는 로그인 정보를 다루지 않습니다.")
+            Text("If \(provider.cliTool) is signed in on this Mac, WhyNode uses that account's subscription. WhyNode never handles your sign-in.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } else {
-            Text("\(provider.cliDisplayName)를 찾지 못했습니다. 설치하고 터미널에서 한 번 로그인한 뒤 다시 확인해 주세요.")
+            Text("Couldn't find \(provider.cliDisplayName). Install it, sign in once in Terminal, then check again.")
                 .foregroundStyle(.orange)
-            Button("다시 확인") { checkCLI() }
+            Button("Check Again") { checkCLI() }
         }
     }
 
     @ViewBuilder
     private var apiKeySection: some View {
-        SecureField("API 키", text: $apiKey)
-        Text("\(provider.apiKeyHelp). 키는 이 기기의 Keychain에만 저장됩니다.")
+        SecureField("API Key", text: $apiKey)
+        Text("\(provider.apiKeyHelp). The key is stored only in this device's Keychain.")
             .font(.caption)
             .foregroundStyle(.secondary)
         HStack {
             if models.isEmpty {
-                TextField("모델", text: $model, prompt: Text(provider.defaultAPIModel.isEmpty ? "모델 목록을 불러와 고르세요" : provider.defaultAPIModel))
+                TextField("Model", text: $model, prompt: provider.defaultAPIModel.isEmpty ? Text("Load the model list and choose") : Text(verbatim: provider.defaultAPIModel))
             } else {
-                Picker("모델", selection: $model) {
+                Picker("Model", selection: $model) {
                     ForEach(models, id: \.self) { Text($0).tag($0) }
                 }
             }
-            Button(loadingModels ? "불러오는 중…" : "모델 목록 불러오기") { loadModels() }
+            Button(loadingModels ? "Loading…" : "Load Models") { loadModels() }
                 .disabled(apiKey.isEmpty || loadingModels)
         }
         if let modelError {
@@ -213,14 +228,14 @@ struct AISetupView: View {
     private var testResult: some View {
         switch testState {
         case .idle:
-            Text(mode == .onboarding ? "연결 테스트에 성공하면 시작할 수 있습니다." : "설정을 바꾸면 연결 테스트 후 저장할 수 있습니다.")
+            Text(mode == .onboarding ? "You can get started once the connection test passes." : "After changing settings, test the connection to save.")
                 .font(.callout).foregroundStyle(.secondary)
         case .running:
-            HStack { ProgressView().controlSize(.small); Text("연결 테스트 중… CLI는 수십 초 걸릴 수 있습니다.") }
+            HStack { ProgressView().controlSize(.small); Text("Testing connection… CLI can take tens of seconds.") }
         case .passed(let samples):
             VStack(alignment: .leading, spacing: 4) {
-                Label("연결 성공", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
-                Text("받은 예시 질문: \(samples.prefix(2).joined(separator: " / "))")
+                Label("Connected", systemImage: "checkmark.circle.fill").foregroundStyle(.green)
+                Text("Sample questions: \(samples.prefix(2).joined(separator: " / "))")
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
         case .failed(let message):

@@ -10,7 +10,7 @@ final class AIController {
     private(set) var suggesting: Set<WID> = []
     var notice: String?
 
-    static let notConfigured = "AI 연결 설정이 필요합니다. 도구 막대의 설정에서 연결해 주세요."
+    static var notConfigured: String { String(localized: "AI isn't connected. Connect it in Settings on the toolbar.") }
 
     private var running = 0
     private var waiting: [CheckedContinuation<Void, Never>] = []
@@ -20,7 +20,7 @@ final class AIController {
               let context = ContextBuilder.answer(for: id, in: document.map)
         else { return }
         guard let provider else {
-            document.perform("답변 실패", undoManager: undoManager) { $0.failRequest(id, message: Self.notConfigured) }
+            document.perform("Answer Failed", undoManager: undoManager) { $0.failRequest(id, message: Self.notConfigured) }
             notice = Self.notConfigured
             return
         }
@@ -36,14 +36,14 @@ final class AIController {
                     let response = try await provider.answer(context)
                     return try ResponseValidator.validate(response, for: id, in: document.map)
                 }
-                document.perform("답변 받기", undoManager: undoManager) {
+                document.perform("Receive Answer", undoManager: undoManager) {
                     $0.applyAnswer(id, validated, generation: provider.generation())
                 }
                 if validated.needsMoreSuggestions {
                     requestSuggestions(for: id, in: document, undoManager: undoManager, exclude: validated.removed)
                 }
             } catch {
-                document.perform("답변 실패", undoManager: undoManager) {
+                document.perform("Answer Failed", undoManager: undoManager) {
                     $0.failRequest(id, message: error.localizedDescription)
                 }
             }
@@ -71,15 +71,15 @@ final class AIController {
                 let (validated, _) = ResponseValidator.validate(response, for: id, in: document.map)
                 let kept = limit.map { Array(validated.prefix($0)) } ?? validated
                 guard !kept.isEmpty else {
-                    notice = "새로운 추가 질문을 찾지 못했습니다."
+                    notice = String(localized: "No new suggestions found.")
                     return
                 }
-                document.perform("추가 질문 다시 받기", undoManager: undoManager) {
+                document.perform("Refresh Suggestions", undoManager: undoManager) {
                     $0.replaceSuggestions(id, with: kept)
                 }
             } catch {
                 // 다시 받기 실패는 노드 상태를 바꾸지 않고 알리기만 한다.
-                notice = "추가 질문을 받지 못했습니다: \(error.localizedDescription)"
+                notice = String(localized: "Couldn't get suggestions: \(error.localizedDescription)")
             }
         }
     }

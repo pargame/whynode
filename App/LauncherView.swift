@@ -27,23 +27,23 @@ struct LauncherView: View {
                         .foregroundStyle(.blue)
                     Text("WhyNode")
                         .font(.largeTitle.bold())
-                    Text("질문을 쫓아가며 넓히는 지식 마인드맵")
+                    Text("A knowledge mind map that grows as you follow your questions")
                         .foregroundStyle(.secondary)
                 }
                 .padding(.bottom, 12)
 
-                action("새 프로젝트", systemImage: "plus.circle.fill", prominent: true) {
-                    create(.new(), name: "새 프로젝트")
+                action("New Project", systemImage: "plus.circle.fill", prominent: true) {
+                    create(.new(), name: ProjectFiles.untitledName)
                 }
-                action("프로젝트 열기…", systemImage: "folder") { importing = .open }
-                action("v1 파일 가져오기…", systemImage: "square.and.arrow.down") { importing = .v1 }
+                action("Open Project", systemImage: "folder") { importing = .open }
+                action("Import v1 File", systemImage: "square.and.arrow.down") { importing = .v1 }
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
-                    Label(settings.ai?.summary ?? "AI가 연결되지 않았습니다", systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
+                    Label(settings.ai?.summary ?? String(localized: "AI is not connected"), systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(settings.isConfigured ? Color.secondary : Color.orange)
                         .lineLimit(2)
-                    Button("설정…") { openSettings() }
+                    Button("Settings") { openSettings() }
                         .controlSize(.small)
                 }
             }
@@ -53,11 +53,11 @@ struct LauncherView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("최근 프로젝트")
+                Text("Recent Projects")
                     .font(.headline)
                     .padding(.horizontal, 12)
                 if recent.isEmpty {
-                    ContentUnavailableView("최근 프로젝트가 없습니다", systemImage: "clock", description: Text("새 프로젝트를 만들어 시작하세요."))
+                    ContentUnavailableView("No Recent Projects", systemImage: "clock", description: Text("Create a new project to get started."))
                 } else {
                     List(recent, id: \.self) { url in
                         Button { open(url) } label: {
@@ -95,8 +95,8 @@ struct LauncherView: View {
         .fileImporter(isPresented: importerBinding, allowedContentTypes: importing == .v1 ? [.json] : [.whynode]) { result in
             handleImport(result)
         }
-        .alert("열 수 없습니다", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
-            Button("확인", role: .cancel) {}
+        .alert("Couldn't Open", isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })) {
+            Button("OK", role: .cancel) {}
         } message: {
             Text(errorMessage ?? "")
         }
@@ -104,7 +104,7 @@ struct LauncherView: View {
 
     static let windowId = "launcher"
 
-    private func action(_ title: String, systemImage: String, prominent: Bool = false, perform: @escaping () -> Void) -> some View {
+    private func action(_ title: LocalizedStringKey, systemImage: String, prominent: Bool = false, perform: @escaping () -> Void) -> some View {
         Button(action: perform) {
             Label(title, systemImage: systemImage)
                 .frame(maxWidth: .infinity, alignment: .leading)

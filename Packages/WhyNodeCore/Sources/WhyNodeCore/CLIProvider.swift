@@ -64,7 +64,7 @@ public struct CLIProvider: AIProvider {
             throw ProviderError.unreadableResponse(String(decoding: output.prefix(200), as: UTF8.self))
         }
         if object["is_error"] as? Bool == true {
-            throw ProviderError.cliFailed(object["result"] as? String ?? "알 수 없는 오류")
+            throw ProviderError.cliFailed(object["result"] as? String ?? L("Unknown error"))
         }
         if let status = object["status"] as? String, status != "SUCCESS" {
             throw ProviderError.cliFailed(object["response"] as? String ?? status)
@@ -103,9 +103,9 @@ public struct CLIProvider: AIProvider {
         switch kind {
         case .anthropic:
             return [
-                ModelOption(id: "haiku", name: "Haiku (가장 빠르고 저렴)"),
-                ModelOption(id: "sonnet", name: "Sonnet (균형)"),
-                ModelOption(id: "opus", name: "Opus (가장 정교)"),
+                ModelOption(id: "haiku", name: L("Haiku (fastest, cheapest)")),
+                ModelOption(id: "sonnet", name: L("Sonnet (balanced)")),
+                ModelOption(id: "opus", name: L("Opus (most capable)")),
             ]
         case .google:
             let output = try await CLIProcess.run(executable, arguments: ["models"])

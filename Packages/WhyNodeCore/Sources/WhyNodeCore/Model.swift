@@ -23,7 +23,7 @@ public struct WID: Hashable, Comparable, Codable, Sendable, CustomStringConverti
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)
         guard let id = WID(string: raw) else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "UUID 형식이 아닌 id: \(raw)")
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "id is not a UUID: \(raw)")
         }
         self = id
     }

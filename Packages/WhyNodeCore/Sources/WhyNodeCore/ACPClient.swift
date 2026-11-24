@@ -33,7 +33,7 @@ public actor ACPClient {
         try await start()
         let session = try await request("session/new", ["cwd": Self.workdir.path, "mcpServers": [Any]()])
         guard let sessionId = (try? JSONSerialization.jsonObject(with: session) as? [String: Any])?["sessionId"] as? String else {
-            throw ProviderError.unreadableResponse("ACP 세션을 만들지 못했습니다.")
+            throw ProviderError.unreadableResponse(L("Couldn't create an ACP session."))
         }
         defer { Task { await self.close(sessionId) } }
         if !model.isEmpty {
@@ -65,7 +65,7 @@ public actor ACPClient {
 
     public func shutdown() {
         process?.terminate()
-        reset(ProviderError.cliFailed("ACP 연결을 종료했습니다."))
+        reset(ProviderError.cliFailed(L("The ACP connection was closed.")))
     }
 
     // 연결
@@ -111,7 +111,7 @@ public actor ACPClient {
         do {
             try Self.writeAgent()
         } catch {
-            throw ProviderError.cliFailed("WhyNode 에이전트 파일을 만들지 못했습니다: \(error.localizedDescription)")
+            throw ProviderError.cliFailed(L("Couldn't create the WhyNode agent file: \(error.localizedDescription)"))
         }
         // 기본 연결은 호출당 약 11.7k 토큰, 전용 에이전트 + 빈 설정 폴더는 약 2.2k (STATUS.md 측정 기록).
         process.arguments = ["acp", "--disable-telemetry", "--agent", Self.agentName, "--gemini-dir", Self.geminiDir.path]
@@ -126,7 +126,7 @@ public actor ACPClient {
         process.standardOutput = output
         process.standardError = FileHandle.nullDevice
         process.terminationHandler = { [weak self] _ in
-            Task { await self?.reset(ProviderError.cliFailed("agy ACP 프로세스가 종료됐습니다.")) }
+            Task { await self?.reset(ProviderError.cliFailed(L("The agy ACP process exited."))) }
         }
         do {
             try process.run()
@@ -168,7 +168,7 @@ public actor ACPClient {
     // JSON-RPC
 
     private func request(_ method: String, _ params: [String: Any]) async throws -> Data {
-        guard let stdin else { throw ProviderError.cliFailed("agy ACP에 연결되어 있지 않습니다.") }
+        guard let stdin else { throw ProviderError.cliFailed(L("Not connected to agy ACP.")) }
         nextId += 1
         let id = nextId
         let message: [String: Any] = ["jsonrpc": "2.0", "id": id, "method": method, "params": params]
@@ -215,7 +215,7 @@ public actor ACPClient {
                 if method == "session/request_permission" {
                     respond(id, result: ["outcome": ["outcome": "cancelled"]])
                 } else {
-                    respond(id, error: ["code": -32601, "message": "WhyNode는 \(method)를 지원하지 않습니다."])
+                    respond(id, error: ["code": -32601, "message": "WhyNode does not support \(method)."])
                 }
             } else if method == "session/update",
                       let params = message["params"] as? [String: Any],
@@ -230,7 +230,7 @@ public actor ACPClient {
         }
         guard let id = message["id"] as? Int, let continuation = pending.removeValue(forKey: id) else { return }
         if let error = message["error"] as? [String: Any] {
-            continuation.resume(throwing: ProviderError.cliFailed(error["message"] as? String ?? "ACP 오류"))
+            continuation.resume(throwing: ProviderError.cliFailed(error["message"] as? String ?? L("ACP error")))
         } else {
             let result = message["result"] ?? NSNull()
             let data = (try? JSONSerialization.data(withJSONObject: result, options: .fragmentsAllowed)) ?? Data()

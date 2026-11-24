@@ -6,15 +6,15 @@ public enum V1ImportError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .notV1: "WhyNode v1 파일이 아닙니다."
-        case .noRoot: "루트 노드가 없는 v1 파일입니다."
+        case .notV1: L("This isn't a WhyNode v1 file.")
+        case .noRoot: L("This v1 file has no root node.")
         }
     }
 }
 
 /// 스킬이 만든 v1 파일(`version: "1.0.0"`)을 v2 문서로 변환한다 (SPEC 7.7). 원본은 수정하지 않는다.
 public enum V1Import {
-    public static let missingAnswerMessage = "답변 없음"
+    public static var missingAnswerMessage: String { L("No answer") }
 
     struct File: Decodable {
         struct Project: Decodable {

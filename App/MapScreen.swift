@@ -54,15 +54,15 @@ struct MapScreen: View {
         .toolbar { toolbar }
         .alert(prompt?.title ?? "", isPresented: promptBinding) {
             TextField(prompt?.placeholder ?? "", text: $promptText)
-            Button("확인") { submitPrompt() }
-            Button("취소", role: .cancel) { prompt = nil }
+            Button("OK") { submitPrompt() }
+            Button("Cancel", role: .cancel) { prompt = nil }
         } message: {
             if case .edit(let id) = prompt, !map.childIDs(of: id).isEmpty {
-                Text("답변은 새로 받고, 하위 노드는 유지됩니다.")
+                Text("The answer will be regenerated. Child nodes are kept.")
             }
         }
-        .alert("알림", isPresented: noticeBinding) {
-            Button("확인", role: .cancel) { ai.notice = nil; importError = nil }
+        .alert("Notice", isPresented: noticeBinding) {
+            Button("OK", role: .cancel) { ai.notice = nil; importError = nil }
         } message: {
             Text(ai.notice ?? importError ?? "")
         }
@@ -136,7 +136,7 @@ struct MapScreen: View {
 
     private func resetTextScale(_ id: WID?) {
         guard let id else { return }
-        document.perform("글자 크기 원래대로", undoManager: undoManager) { $0.setTextScale(id, 1) }
+        document.perform("Reset Text Size", undoManager: undoManager) { $0.setTextScale(id, 1) }
     }
 
     private func textPinchGesture(for node: Node) -> some Gesture {
@@ -147,7 +147,7 @@ struct MapScreen: View {
             .onEnded { value in
                 let target = node.textScale * value.magnification
                 withoutAnimation {
-                    document.perform("글자 크기", undoManager: undoManager) { $0.setTextScale(node.id, target) }
+                    document.perform("Text Size", undoManager: undoManager) { $0.setTextScale(node.id, target) }
                     canvas.textPinch = nil
                 }
             }
@@ -168,10 +168,10 @@ struct MapScreen: View {
             }
             let suggesting = ai.suggesting.contains(node.id)
             HStack(spacing: Self.chipSpacing) {
-                chip(Text("\(Image(systemName: "plus.bubble"))  직접 질문…").foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                chip((Text(Image(systemName: "plus.bubble")) + Text(verbatim: "  ") + Text("Ask Your Own")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
                     ask(.custom(parent: node.id))
                 }
-                chip(Text("\(Image(systemName: "arrow.clockwise"))  다른 질문 3개").foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                chip((Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
                     ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
                 }
                 .disabled(suggesting)
@@ -240,7 +240,7 @@ struct MapScreen: View {
     private func pick(_ suggestion: Suggestion, of parentId: WID) {
         var created: WID?
         withAnimation(Self.focusSpring) {
-            document.perform("추가 질문 선택", undoManager: undoManager) {
+            document.perform("Choose Suggestion", undoManager: undoManager) {
                 created = $0.addChild(of: parentId, suggestion: suggestion.id)
             }
         }
@@ -257,36 +257,36 @@ struct MapScreen: View {
     }
 
     private func retry(_ id: WID) {
-        document.perform("답변 다시 받기", undoManager: undoManager) { $0.beginRegenerate(id) }
+        document.perform("Regenerate Answer", undoManager: undoManager) { $0.beginRegenerate(id) }
         ai.requestAnswer(for: id, in: document, undoManager: undoManager)
     }
 
     @ViewBuilder
     private func menu(for node: Node) -> some View {
         if node.status != .empty {
-            Button("직접 질문…") { ask(.custom(parent: node.id)) }
-            Button("추가 질문 다시 받기") {
+            Button("Ask Your Own") { ask(.custom(parent: node.id)) }
+            Button("Refresh Suggestions") {
                 ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager)
             }
             .disabled(node.status != .done)
-            Button("답변 다시 받기") { retry(node.id) }
+            Button("Regenerate Answer") { retry(node.id) }
                 .disabled(node.status == .pending)
-            Button("질문 수정…") { ask(.edit(node.id), initial: node.question) }
+            Button("Edit Question") { ask(.edit(node.id), initial: node.question) }
         }
         if node.textScale != 1 {
-            Button("글자 크기 원래대로") { resetTextScale(node.id) }
+            Button("Reset Text Size") { resetTextScale(node.id) }
         }
         if node.id != map.rootId, !map.childIDs(of: node.id).isEmpty {
-            Button(node.collapsed ? "가지 펼치기" : "가지 접기") {
-                document.perform(node.collapsed ? "가지 펼치기" : "가지 접기", undoManager: undoManager) {
+            Button(node.collapsed ? "Expand Branch" : "Collapse Branch") {
+                document.perform(node.collapsed ? "Expand Branch" : "Collapse Branch", undoManager: undoManager) {
                     $0.setCollapsed(node.id, !node.collapsed)
                 }
             }
         }
         if node.id != map.rootId {
             Divider()
-            Button("삭제", role: .destructive) {
-                document.perform("노드 삭제", undoManager: undoManager) { $0.deleteSubtree(node.id) }
+            Button("Delete", role: .destructive) {
+                document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(node.id) }
                 if let focusedId, map[focusedId] == nil { self.focusedId = nil }
             }
         }
@@ -295,7 +295,7 @@ struct MapScreen: View {
     /// ⌫ · ⌦: 포커스 노드와 그 아래 가지를 확인 없이 지운다. ⌘Z로 되돌린다. 루트는 지우지 않는다.
     private func deleteFocused() -> Bool {
         guard let id = focusedId, id != map.rootId, map[id] != nil else { return false }
-        document.perform("노드 삭제", undoManager: undoManager) { $0.deleteSubtree(id) }
+        document.perform("Delete Node", undoManager: undoManager) { $0.deleteSubtree(id) }
         focusedId = nil
         return true
     }
@@ -314,13 +314,13 @@ struct MapScreen: View {
         switch request {
         case .root:
             let previous = map.root.question
-            document.perform("주제 입력", undoManager: undoManager) { $0.setRootQuestion(text) }
+            document.perform("Enter Topic", undoManager: undoManager) { $0.setRootQuestion(text) }
             renameProject(from: previous)
             if map.root.status == .pending { start(map.rootId) }
         case .custom(let parent):
             var created: WID?
             withAnimation(Self.focusSpring) {
-                document.perform("직접 질문", undoManager: undoManager) {
+                document.perform("Ask Your Own", undoManager: undoManager) {
                     created = $0.addCustomChild(of: parent, question: text)
                 }
             }
@@ -330,7 +330,7 @@ struct MapScreen: View {
             }
         case .edit(let id):
             let previous = map.root.question
-            document.perform("질문 수정", undoManager: undoManager) { $0.editQuestion(id, to: text) }
+            document.perform("Edit Question", undoManager: undoManager) { $0.editQuestion(id, to: text) }
             if id == map.rootId { renameProject(from: previous) }
             if map[id]?.status == .pending { start(id) }
         }
@@ -415,7 +415,7 @@ struct MapScreen: View {
                 let x = node.position.x + value.translation.width / canvas.effectiveScale
                 let y = node.position.y + value.translation.height / canvas.effectiveScale
                 withoutAnimation {
-                    document.perform("노드 이동", undoManager: undoManager) { $0.move(node.id, to: (x, y)) }
+                    document.perform("Move Node", undoManager: undoManager) { $0.move(node.id, to: (x, y)) }
                     canvas.dragging = nil
                 }
             }
@@ -490,7 +490,7 @@ struct MapScreen: View {
         withoutAnimation {
             guard let positions = canvas.stopSimulation() else { return }
             if manual {
-                document.perform("시뮬레이션", undoManager: undoManager) { $0.arrange(positions) }
+                document.perform("Simulation", undoManager: undoManager) { $0.arrange(positions) }
             } else {
                 // 자동 배치는 사용자가 고정한 노드를 건드리지 않는다.
                 document.applyWithoutUndo { $0.applyLayout(positions) }
@@ -548,14 +548,14 @@ struct MapScreen: View {
     @ToolbarContentBuilder
     private var toolbar: some ToolbarContent {
         ToolbarItemGroup {
-            Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("축소", systemImage: "minus.magnifyingglass") }
-            Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("확대", systemImage: "plus.magnifyingglass") }
-            Button { animateCamera(scale: 1, offset: .zero) } label: { Label("가운데로", systemImage: "scope") }
-            Button { settings.stepTextScale(-1) } label: { Label("글자 작게", systemImage: "textformat.size.smaller") }
+            Button { animateCamera(scale: canvas.scale / 1.25) } label: { Label("Zoom Out", systemImage: "minus.magnifyingglass") }
+            Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("Zoom In", systemImage: "plus.magnifyingglass") }
+            Button { animateCamera(scale: 1, offset: .zero) } label: { Label("Center", systemImage: "scope") }
+            Button { settings.stepTextScale(-1) } label: { Label("Smaller Text", systemImage: "textformat.size.smaller") }
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
-            Button { settings.stepTextScale(1) } label: { Label("글자 크게", systemImage: "textformat.size.larger") }
+            Button { settings.stepTextScale(1) } label: { Label("Larger Text", systemImage: "textformat.size.larger") }
                 .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button { showSettings = true } label: { Label("설정", systemImage: "gearshape") }
+            Button { showSettings = true } label: { Label("Settings", systemImage: "gearshape") }
         }
     }
 
@@ -574,18 +574,18 @@ enum PromptRequest: Equatable {
     case custom(parent: WID)
     case edit(WID)
 
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
-        case .root: "무엇이 궁금한가요?"
-        case .custom: "직접 질문"
-        case .edit: "질문 수정"
+        case .root: "What are you curious about?"
+        case .custom: "Ask Your Own"
+        case .edit: "Edit Question"
         }
     }
 
-    var placeholder: String {
+    var placeholder: LocalizedStringKey {
         switch self {
-        case .root: "주제나 질문 (예: 양자역학)"
-        case .custom, .edit: "질문을 입력하세요"
+        case .root: "A topic or question (e.g. quantum mechanics)"
+        case .custom, .edit: "Enter a question"
         }
     }
 }

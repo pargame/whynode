@@ -11,17 +11,17 @@ public enum CodecError: Error, Equatable, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .notJSONObject:
-            "WhyNode 문서 형식이 아닙니다."
+            L("This isn't a WhyNode document.")
         case .unsupportedSchemaVersion(let version):
-            "더 새로운 버전(schemaVersion \(version))의 문서입니다. 앱을 업데이트해 주세요."
+            L("This document is from a newer version (schemaVersion \(version)). Please update the app.")
         case .missingSchemaVersion:
-            "schemaVersion이 없는 문서입니다. v1 파일은 가져오기로 여세요."
+            L("This document has no schemaVersion. Open v1 files with Import.")
         case .invalidSchemaVersion(let version):
-            "알 수 없는 schemaVersion(\(version))입니다."
+            L("Unknown schemaVersion (\(version)).")
         case .unexpectedKeys(let path, let keys):
-            "\(path)에 정의되지 않은 필드가 있습니다: \(keys.joined(separator: ", "))"
+            L("\(path) has undefined fields: \(keys.joined(separator: ", "))")
         case .missingKeys(let path, let keys):
-            "\(path)에 필수 필드가 없습니다: \(keys.joined(separator: ", "))"
+            L("\(path) is missing required fields: \(keys.joined(separator: ", "))")
         }
     }
 }
@@ -124,7 +124,7 @@ public enum WhyNodeCodec {
             let container = try decoder.singleValueContainer()
             let raw = try container.decode(String.self)
             guard let date = Timestamp.date(from: raw) else {
-                throw DecodingError.dataCorruptedError(in: container, debugDescription: "시각 형식 오류: \(raw)")
+                throw DecodingError.dataCorruptedError(in: container, debugDescription: "Invalid timestamp: \(raw)")
             }
             return date
         }
@@ -146,7 +146,7 @@ enum SchemaGuard {
     static let generation: Set<String> = ["provider", "connection", "model", "promptVersion", "generatedAt"]
 
     static func check(_ object: [String: Any]) throws {
-        try keys(object, file, "문서")
+        try keys(object, file, L("document"))
         if let project = object["project"] as? [String: Any] {
             try keys(project, Self.project, "project")
         }

@@ -1,0 +1,121 @@
+/* WhyNode 앱 한국어 */
+
+/* 시작 화면 */
+"A knowledge mind map that grows as you follow your questions" = "질문을 쫓아가며 넓히는 지식 마인드맵";
+"New Project" = "새 프로젝트";
+"Open Project" = "프로젝트 열기";
+"Import v1 File" = "v1 파일 가져오기";
+"AI is not connected" = "AI가 연결되지 않았습니다";
+"Settings" = "설정";
+"Recent Projects" = "최근 프로젝트";
+"No Recent Projects" = "최근 프로젝트가 없습니다";
+"Create a new project to get started." = "새 프로젝트를 만들어 시작하세요.";
+"Couldn't Open" = "열 수 없습니다";
+"OK" = "확인";
+"Cancel" = "취소";
+
+/* 시뮬레이션 */
+"Stop" = "멈춤";
+"Simulate" = "시뮬레이션";
+"Collapse controls" = "조절값 접기";
+"Keep controls open" = "조절값 펼친 채로 두기";
+"Repulsion" = "반발력";
+"Tension" = "장력";
+"Link Distance" = "링크 거리";
+"Gravity" = "중심력";
+"The root stays fixed. Link distance is the line length between the edges of two circles." = "루트는 고정됩니다. 링크 거리는 두 원 가장자리 사이의 선 길이입니다.";
+"Reset to Defaults" = "기본값으로 설정";
+
+/* 메뉴 · 도구 막대 */
+"Larger Text" = "글자 크게";
+"Smaller Text" = "글자 작게";
+"Default Text Size" = "기본 글자 크기";
+"Reset Node Text Size" = "노드 글자 크기 원래대로";
+"Zoom Out" = "축소";
+"Zoom In" = "확대";
+"Center" = "가운데로";
+
+/* 노드 */
+"Collapsed" = "접힘";
+"Enter a topic" = "주제를 입력하세요";
+"Error" = "오류";
+"Retry" = "다시 시도";
+
+/* 맵 화면 */
+"The answer will be regenerated. Child nodes are kept." = "답변은 새로 받고, 하위 노드는 유지됩니다.";
+"Notice" = "알림";
+"Ask Your Own" = "직접 질문";
+"3 Other Questions" = "다른 질문 3개";
+"Refresh Suggestions" = "추가 질문 다시 받기";
+"Regenerate Answer" = "답변 다시 받기";
+"Edit Question" = "질문 수정";
+"Reset Text Size" = "글자 크기 원래대로";
+"Expand Branch" = "가지 펼치기";
+"Collapse Branch" = "가지 접기";
+"Delete" = "삭제";
+"What are you curious about?" = "무엇이 궁금한가요?";
+"A topic or question (e.g. quantum mechanics)" = "주제나 질문 (예: 양자역학)";
+"Enter a question" = "질문을 입력하세요";
+
+/* 실행 취소 이름 */
+"Answer Failed" = "답변 실패";
+"Receive Answer" = "답변 받기";
+"Text Size" = "글자 크기";
+"Choose Suggestion" = "추가 질문 선택";
+"Delete Node" = "노드 삭제";
+"Enter Topic" = "주제 입력";
+"Move Node" = "노드 이동";
+"Simulation" = "시뮬레이션";
+
+/* AI 요청 */
+"AI isn't connected. Connect it in Settings on the toolbar." = "AI 연결 설정이 필요합니다. 도구 막대의 설정에서 연결해 주세요.";
+"No new suggestions found." = "새로운 추가 질문을 찾지 못했습니다.";
+"Couldn't get suggestions: %@" = "추가 질문을 받지 못했습니다: %@";
+"CLI connection on iPadOS" = "iPadOS의 CLI 연동";
+"Official sign-in" = "공식 로그인";
+"Couldn't save to Keychain (%lld)" = "Keychain 저장 실패 (%lld)";
+
+/* 설정 */
+"AI Connection" = "AI 연결 설정";
+"Choose the AI WhyNode uses to write answers and suggestions. You can change it anytime in Settings." = "WhyNode가 답변과 추가 질문을 만들 때 쓸 AI를 고릅니다. 나중에 설정에서 언제든 바꿀 수 있습니다.";
+"AI Provider" = "AI 회사";
+"Connection" = "연결 방식";
+"My CLI (subscription)" = "내 CLI (구독 요금제)";
+"API Key" = "API 키";
+"Official Sign-in (coming soon)" = "공식 로그인 (준비 중)";
+"Official sign-in will be available once WhyNode is registered with each AI provider. For now, use your CLI or an API key." = "공식 로그인은 각 AI 회사에 WhyNode 앱 등록이 끝나면 지원합니다. 지금은 내 CLI 또는 API 키를 사용해 주세요.";
+"General" = "일반";
+"Language" = "언어";
+"Restart WhyNode to apply the language." = "언어를 적용하려면 WhyNode를 다시 켜야 합니다.";
+"Restart Now" = "지금 다시 켜기";
+"Projects" = "프로젝트";
+"Save Location" = "저장 위치";
+"Change" = "변경";
+"Default Location" = "기본 위치";
+"New projects are saved here right away and saved automatically afterward. The file name follows the first node's topic." = "새 프로젝트는 저장 위치에 바로 저장되고, 이후 자동 저장됩니다. 파일 이름은 첫 노드의 주제를 따릅니다.";
+"Current: %@" = "현재: %@";
+"Later" = "나중에";
+"Close" = "닫기";
+"Test Connection" = "연결 테스트";
+"Get Started" = "시작하기";
+"Save" = "저장";
+"%@ isn't supported yet. Please use an API key." = "%@ 연동은 아직 지원하지 않습니다. API 키를 사용해 주세요.";
+"Looking for %@…" = "%@ 찾는 중…";
+"Model" = "모델";
+"CLI Default Model" = "CLI 기본 모델";
+"Custom" = "직접 입력";
+"Model ID" = "모델 ID";
+"For fast responses and lower usage, Haiku is recommended." = "빠른 응답과 적은 사용량을 원하면 Haiku를 권장합니다.";
+"WhyNode keeps a connection to agy while the app is open. For fast responses, Gemini 3.8 Flash (Low) is recommended." = "앱이 켜져 있는 동안 agy와 연결을 유지합니다. 빠른 응답을 원하면 Gemini 3.8 Flash (Low)를 권장합니다.";
+"If %@ is signed in on this Mac, WhyNode uses that account's subscription. WhyNode never handles your sign-in." = "이 Mac에서 %@에 로그인되어 있으면 그 계정의 구독 요금제를 그대로 씁니다. WhyNode는 로그인 정보를 다루지 않습니다.";
+"Couldn't find %@. Install it, sign in once in Terminal, then check again." = "%@를 찾지 못했습니다. 설치하고 터미널에서 한 번 로그인한 뒤 다시 확인해 주세요.";
+"Check Again" = "다시 확인";
+"%@. The key is stored only in this device's Keychain." = "%@. 키는 이 기기의 Keychain에만 저장됩니다.";
+"Load the model list and choose" = "모델 목록을 불러와 고르세요";
+"Loading…" = "불러오는 중…";
+"Load Models" = "모델 목록 불러오기";
+"You can get started once the connection test passes." = "연결 테스트에 성공하면 시작할 수 있습니다.";
+"After changing settings, test the connection to save." = "설정을 바꾸면 연결 테스트 후 저장할 수 있습니다.";
+"Testing connection… CLI can take tens of seconds." = "연결 테스트 중… CLI는 수십 초 걸릴 수 있습니다.";
+"Connected" = "연결 성공";
+"Sample questions: %@" = "받은 예시 질문: %@";

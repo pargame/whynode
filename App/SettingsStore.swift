@@ -1,6 +1,25 @@
 import Foundation
 import Security
+#if os(macOS)
+import AppKit
+#endif
 import WhyNodeCore
+
+/// 앱 화면 언어. 원문은 영어이고 한국어 번역이 있다.
+enum AppLanguage: String, CaseIterable, Identifiable {
+    case english = "en"
+    case korean = "ko"
+
+    var id: String { rawValue }
+
+    /// 언어 이름은 그 언어로 쓴다.
+    var displayName: String {
+        switch self {
+        case .english: "English"
+        case .korean: "한국어"
+        }
+    }
+}
 
 /// 앱 전역 설정. 선택한 AI 회사 · 연결 방식 · 모델은 UserDefaults에, API 키는 Keychain에만 저장한다 (SPEC 5.2, 5.4).
 @Observable
@@ -9,6 +28,18 @@ final class SettingsStore {
     private static let physicsKey = "physics.settings"
     private static let textScaleKey = "text.scale"
     private static let projectFolderKey = "project.folder"
+    private static let languageKey = "app.language"
+
+    /// 화면 언어. 기본은 영어. 바꾸면 앱을 다시 켜야 적용된다(메뉴 · 시스템 창까지 한 번에 바뀌도록 AppleLanguages로 정한다).
+    var language: AppLanguage = .english {
+        didSet {
+            UserDefaults.standard.set(language.rawValue, forKey: Self.languageKey)
+            UserDefaults.standard.set([language.rawValue], forKey: "AppleLanguages")
+        }
+    }
+    /// 이번 실행에 적용된 언어
+    @ObservationIgnored private var launchLanguage: AppLanguage = .english
+    var needsRestartForLanguage: Bool { language != launchLanguage }
 
     private(set) var ai: AISettings?
 
@@ -44,7 +75,23 @@ final class SettingsStore {
 
     var isConfigured: Bool { ai != nil }
 
+    #if os(macOS)
+    /// 앱을 다시 켠다. 문서는 자동 저장되어 있다.
+    func relaunch() {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+    }
+    #endif
+
     init() {
+        // 화면 문구를 읽기 전에 언어를 정한다. 이 객체는 앱이 시작할 때 가장 먼저 만들어진다.
+        let saved = UserDefaults.standard.string(forKey: Self.languageKey).flatMap(AppLanguage.init) ?? .english
+        UserDefaults.standard.set([saved.rawValue], forKey: "AppleLanguages")
+        language = saved
+        launchLanguage = saved
         if let data = UserDefaults.standard.data(forKey: Self.settingsKey) {
             ai = try? JSONDecoder().decode(AISettings.self, from: data)
         }
@@ -126,10 +173,10 @@ final class SettingsStore {
             }
             return CLIProvider(kind: settings.provider, executable: executable, model: settings.model)
             #else
-            throw ProviderError.notSupported("iPadOS의 CLI 연동")
+            throw ProviderError.notSupported(String(localized: "CLI connection on iPadOS"))
             #endif
         case .oauth:
-            throw ProviderError.notSupported("공식 로그인")
+            throw ProviderError.notSupported(String(localized: "Official sign-in"))
         }
     }
 }
@@ -170,6 +217,6 @@ enum Keychain {
 
     struct KeychainError: LocalizedError {
         let status: OSStatus
-        var errorDescription: String? { "Keychain 저장 실패 (\(status))" }
+        var errorDescription: String? { String(localized: "Couldn't save to Keychain (\(Int(status)))") }
     }
 }

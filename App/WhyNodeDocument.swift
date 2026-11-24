@@ -43,11 +43,12 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
     }
 
     /// 변경을 적용하고 실행 취소를 등록한다. 등록이 곧 문서 변경 표시가 되어 자동 저장이 일어난다.
-    func perform(_ actionName: String, undoManager: UndoManager?, _ change: (inout MindMap) -> Void) {
+    /// `actionName`은 편집 메뉴의 실행 취소 이름이다. 앱 언어로 번역된다.
+    func perform(_ actionName: LocalizedStringResource, undoManager: UndoManager?, _ change: (inout MindMap) -> Void) {
         let before = map
         change(&map)
         guard map != before else { return }
-        registerUndo(restoring: before, actionName: actionName, undoManager: undoManager)
+        registerUndo(restoring: before, actionName: String(localized: actionName), undoManager: undoManager)
     }
 
     private func registerUndo(restoring previous: MindMap, actionName: String, undoManager: UndoManager?) {

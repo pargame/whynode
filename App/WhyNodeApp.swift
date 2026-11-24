@@ -48,7 +48,7 @@ struct WhyNodeApp: App {
         }
 
         DocumentGroupLaunchScene("WhyNode") {
-            NewDocumentButton("새 프로젝트")
+            NewDocumentButton("New Project")
         } background: {
             LinearGradient(colors: [.blue.opacity(0.25), .indigo.opacity(0.15)], startPoint: .top, endPoint: .bottom)
         }
@@ -64,14 +64,14 @@ struct TextSizeCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button("글자 크게") { settings.stepTextScale(1) }
+            Button("Larger Text") { settings.stepTextScale(1) }
                 .keyboardShortcut("=")
                 .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button("글자 작게") { settings.stepTextScale(-1) }
+            Button("Smaller Text") { settings.stepTextScale(-1) }
                 .keyboardShortcut("-")
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
             // 노드를 먼저 되돌리고, 노드가 원래 크기면 앱 전체 글자 크기를 되돌린다.
-            Button(resetNode == nil ? "기본 글자 크기" : "노드 글자 크기 원래대로") {
+            Button(resetNode == nil ? "Default Text Size" : "Reset Node Text Size") {
                 if let resetNode { resetNode() } else { settings.textScale = 1 }
             }
             .keyboardShortcut("0")

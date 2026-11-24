@@ -67,7 +67,7 @@ public enum ValidationError: Error, Equatable, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-        case .emptyField(let name): "AI 응답의 \(name)이(가) 비어 있습니다."
+        case .emptyField(let name): L("The AI response's \(name) is empty.")
         }
     }
 }
