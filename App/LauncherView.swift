@@ -35,7 +35,7 @@ struct LauncherView: View {
                 Spacer()
                 VStack(alignment: .leading, spacing: 6) {
                     // 설정은 메뉴 막대 WhyNode > 설정(⌘,)으로 연다.
-                    Label(settings.ai?.summary ?? String(localized: "AI is not connected"), systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
+                    Label(settings.ai?.summary ?? tr("AI is not connected"), systemImage: settings.isConfigured ? "checkmark.seal" : "exclamationmark.triangle")
                         .font(.caption)
                         .foregroundStyle(settings.isConfigured ? Color.secondary : Color.orange)
                         .lineLimit(2)
@@ -152,7 +152,7 @@ struct LauncherView: View {
     private func trash(_ project: ProjectEntry) {
         let target = project.url.standardizedFileURL
         if NSDocumentController.shared.documents.contains(where: { $0.fileURL?.standardizedFileURL == target }) {
-            show("Couldn't Delete", String(localized: "Close the project before deleting it."))
+            show("Couldn't Delete", tr("Close the project before deleting it."))
             return
         }
         do {

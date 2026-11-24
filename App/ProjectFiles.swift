@@ -12,7 +12,7 @@ enum ProjectFiles {
     }
 
     /// `map`을 `folder/name.whynode`로 저장하고 경로를 돌려준다. 같은 이름이 있으면 `name 2`, `name 3`…으로 피한다.
-    static var untitledName: String { String(localized: "New Project") }
+    static var untitledName: String { tr("New Project") }
     /// 언어를 바꿔도 예전 언어로 붙은 자동 이름을 알아보도록 두 언어 이름을 모두 둔다.
     static let untitledNames = ["New Project", "새 프로젝트"]
 
@@ -83,7 +83,8 @@ struct NewProjectCommands: Commands {
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
-            Button("New Project") {
+            let _ = settings.language
+            Button(tr("New Project")) {
                 let creator = ProjectCreator(settings: settings, openDocument: openDocument)
                 Task { try? await creator.create() }
             }

@@ -17,6 +17,7 @@ struct WhyNodeApp: App {
         Window("WhyNode", id: LauncherView.windowId) {
             LauncherView()
                 .environment(settings)
+                .environment(\.locale, settings.language.locale)
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.presented)
@@ -24,6 +25,7 @@ struct WhyNodeApp: App {
         DocumentGroup(newDocument: { WhyNodeDocument() }) { file in
             MapScreen(document: file.document)
                 .environment(settings)
+                .environment(\.locale, settings.language.locale)
         }
         .defaultLaunchBehavior(.suppressed)
         // 문서 창은 화면의 사용 가능한 영역을 가득 채운 창으로 연다.
@@ -33,7 +35,7 @@ struct WhyNodeApp: App {
         }
         .commands {
             NewProjectCommands(settings: settings)
-            UndoCommands()
+            UndoCommands(settings: settings)
             TextSizeCommands(settings: settings)
         }
 
@@ -41,11 +43,13 @@ struct WhyNodeApp: App {
         Settings {
             AISetupView(mode: .settings)
                 .environment(settings)
+                .environment(\.locale, settings.language.locale)
         }
         #else
         DocumentGroup(newDocument: { WhyNodeDocument() }) { file in
             MapScreen(document: file.document)
                 .environment(settings)
+                .environment(\.locale, settings.language.locale)
         }
 
         DocumentGroupLaunchScene("WhyNode") {
@@ -65,14 +69,16 @@ struct TextSizeCommands: Commands {
 
     var body: some Commands {
         CommandGroup(after: .toolbar) {
-            Button("Larger Text") { settings.stepTextScale(1) }
+            // 메뉴 문구는 환경 언어를 받지 않으므로 고른 언어로 직접 옮긴다(언어가 바뀌면 다시 그려진다).
+            let _ = settings.language
+            Button(tr("Larger Text")) { settings.stepTextScale(1) }
                 .keyboardShortcut("=")
                 .disabled(settings.textScale >= SettingsStore.textScaleRange.upperBound)
-            Button("Smaller Text") { settings.stepTextScale(-1) }
+            Button(tr("Smaller Text")) { settings.stepTextScale(-1) }
                 .keyboardShortcut("-")
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
             // 노드를 먼저 되돌리고, 노드가 원래 크기면 앱 전체 글자 크기를 되돌린다.
-            Button(resetNode == nil ? "Default Text Size" : "Reset Node Text Size") {
+            Button(resetNode == nil ? tr("Default Text Size") : tr("Reset Node Text Size")) {
                 if let resetNode { resetNode() } else { settings.textScale = 1 }
             }
             .keyboardShortcut("0")
@@ -98,21 +104,23 @@ struct DocumentUndoState {
 /// 편집 > 실행 취소 · 다시 실행. 실제 처리는 응답 체인(입력칸이면 글자, 문서면 문서)에 맡기고,
 /// AI 응답을 기다리는 문서에서는 끈다. 도중에 끊긴 요청은 사용량을 알 수 없어 토큰이 새기 때문이다.
 struct UndoCommands: Commands {
+    let settings: SettingsStore
     @FocusedValue(\.documentUndo) private var state
 
     var body: some Commands {
         CommandGroup(replacing: .undoRedo) {
+            let _ = settings.language
             Button {
                 NSApp.sendAction(Selector(("undo:")), to: nil, from: nil)
             } label: {
-                if let title = state?.undoTitle { Text(verbatim: title) } else { Text("Undo") }
+                Text(verbatim: state?.undoTitle ?? tr("Undo"))
             }
             .keyboardShortcut("z")
             .disabled(state?.busy == true)
             Button {
                 NSApp.sendAction(Selector(("redo:")), to: nil, from: nil)
             } label: {
-                if let title = state?.redoTitle { Text(verbatim: title) } else { Text("Redo") }
+                Text(verbatim: state?.redoTitle ?? tr("Redo"))
             }
             .keyboardShortcut("z", modifiers: [.command, .shift])
             .disabled(state?.busy == true)

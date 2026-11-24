@@ -15,7 +15,7 @@ final class AIController {
     /// 앱 전체 요청 관리. 화면이 나타날 때 연결한다.
     @ObservationIgnored var center: AIRequestCenter?
 
-    static var notConfigured: String { String(localized: "AI isn't connected. Connect it in WhyNode > Settings (⌘,).") }
+    static var notConfigured: String { tr("AI isn't connected. Connect it in WhyNode > Settings (⌘,).") }
 
     func requestAnswer(for id: WID, in document: WhyNodeDocument, undoManager: UndoManager?) {
         guard let center, let node = document.map[id], node.status == .pending,
@@ -99,7 +99,7 @@ final class AIController {
                 let (validated, _) = ResponseValidator.validate(response, for: id, in: document.map)
                 let kept = limit.map { Array(validated.prefix($0)) } ?? validated
                 guard !kept.isEmpty else {
-                    if !isAutomatic { notice = String(localized: "No new suggestions found.") }
+                    if !isAutomatic { notice = tr("No new suggestions found.") }
                     return
                 }
                 if isAutomatic {
@@ -113,7 +113,7 @@ final class AIController {
             } catch {
                 // 다시 받기 실패는 노드 상태를 바꾸지 않고 알리기만 한다.
                 guard !Task.isCancelled else { return }
-                notice = String(localized: "Couldn't get suggestions: \(error.localizedDescription)")
+                notice = tr("Couldn't get suggestions: \(error.localizedDescription)")
             }
         }
         center.register(.init(id: requestID, key: key, question: question, phase: .waiting, task: task))

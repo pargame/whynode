@@ -65,7 +65,7 @@ final class WhyNodeDocument: ReferenceFileDocument, @unchecked Sendable {
         let before = map
         change(&map)
         guard map != before else { return }
-        registerUndo(restoring: before, actionName: String(localized: actionName), undoManager: undoManager)
+        registerUndo(restoring: before, actionName: actionName.inAppLanguage, undoManager: undoManager)
     }
 
     private func registerUndo(restoring previous: MindMap, actionName: String, undoManager: UndoManager?) {

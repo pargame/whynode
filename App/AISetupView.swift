@@ -150,15 +150,9 @@ struct AISetupView: View {
             Picker("Language", selection: $settings.language) {
                 ForEach(AppLanguage.allCases) { Text(verbatim: $0.displayName).tag($0) }
             }
-            if settings.needsRestartForLanguage {
-                HStack {
-                    Text("Restart WhyNode to apply the language.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Button("Restart Now") { settings.relaunch() }
-                }
-            }
+            Text("The app changes right away. System menus such as File and Edit change from the next launch.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

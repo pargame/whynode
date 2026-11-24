@@ -12,6 +12,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var locale: Locale { Locale(identifier: rawValue) }
+
     /// 언어 이름은 그 언어로 쓴다.
     var displayName: String {
         switch self {
@@ -30,16 +32,15 @@ final class SettingsStore {
     private static let projectFolderKey = "project.folder"
     private static let languageKey = "app.language"
 
-    /// 화면 언어. 기본은 영어. 바꾸면 앱을 다시 켜야 적용된다(메뉴 · 시스템 창까지 한 번에 바뀌도록 AppleLanguages로 정한다).
+    /// 화면 언어. 기본은 영어. 바꾸면 화면은 바로 바뀐다.
     var language: AppLanguage = .english {
         didSet {
             UserDefaults.standard.set(language.rawValue, forKey: Self.languageKey)
+            // 화면은 바로 바뀌고(`locale`), 파일 · 편집 같은 시스템 메뉴는 다음 실행부터 바뀐다.
             UserDefaults.standard.set([language.rawValue], forKey: "AppleLanguages")
+            CoreLanguage.locale = language.locale
         }
     }
-    /// 이번 실행에 적용된 언어
-    @ObservationIgnored private var launchLanguage: AppLanguage = .english
-    var needsRestartForLanguage: Bool { language != launchLanguage }
 
     private(set) var ai: AISettings?
 
@@ -78,23 +79,13 @@ final class SettingsStore {
 
     var isConfigured: Bool { ai != nil }
 
-    #if os(macOS)
-    /// 앱을 다시 켠다. 문서는 자동 저장되어 있다.
-    func relaunch() {
-        let configuration = NSWorkspace.OpenConfiguration()
-        configuration.createsNewApplicationInstance = true
-        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: configuration) { _, _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
-        }
-    }
-    #endif
 
     init() {
         // 화면 문구를 읽기 전에 언어를 정한다. 이 객체는 앱이 시작할 때 가장 먼저 만들어진다.
         let saved = UserDefaults.standard.string(forKey: Self.languageKey).flatMap(AppLanguage.init) ?? .english
         UserDefaults.standard.set([saved.rawValue], forKey: "AppleLanguages")
         language = saved
-        launchLanguage = saved
+        CoreLanguage.locale = saved.locale
         if let data = UserDefaults.standard.data(forKey: Self.settingsKey) {
             ai = try? JSONDecoder().decode(AISettings.self, from: data)
         }
@@ -184,10 +175,10 @@ final class SettingsStore {
             }
             return CLIProvider(kind: settings.provider, executable: executable, model: settings.model)
             #else
-            throw ProviderError.notSupported(String(localized: "CLI connection on iPadOS"))
+            throw ProviderError.notSupported(tr("CLI connection on iPadOS"))
             #endif
         case .oauth:
-            throw ProviderError.notSupported(String(localized: "Official sign-in"))
+            throw ProviderError.notSupported(tr("Official sign-in"))
         }
     }
 }
@@ -228,6 +219,6 @@ enum Keychain {
 
     struct KeychainError: LocalizedError {
         let status: OSStatus
-        var errorDescription: String? { String(localized: "Couldn't save to Keychain (\(Int(status)))") }
+        var errorDescription: String? { tr("Couldn't save to Keychain (\(Int(status)))") }
     }
 }

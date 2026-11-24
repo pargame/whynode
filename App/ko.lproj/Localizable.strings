@@ -90,8 +90,6 @@
 "Official sign-in will be available once WhyNode is registered with each AI provider. For now, use your CLI or an API key." = "공식 로그인은 각 AI 회사에 WhyNode 앱 등록이 끝나면 지원합니다. 지금은 내 CLI 또는 API 키를 사용해 주세요.";
 "General" = "일반";
 "Language" = "언어";
-"Restart WhyNode to apply the language." = "언어를 적용하려면 WhyNode를 다시 켜야 합니다.";
-"Restart Now" = "지금 다시 켜기";
 "Projects" = "프로젝트";
 "Save Location" = "저장 위치";
 "Change" = "변경";
@@ -168,3 +166,4 @@
 "Smaller text for all nodes (⌘-)" = "모든 노드 글자 작게 (⌘-)";
 "Larger text for all nodes (⌘=)" = "모든 노드 글자 크게 (⌘=)";
 "Default model" = "기본 모델";
+"The app changes right away. System menus such as File and Edit change from the next launch." = "앱 화면은 바로 바뀝니다. 파일 · 편집 같은 시스템 메뉴는 다음 실행부터 바뀝니다.";

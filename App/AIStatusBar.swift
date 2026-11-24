@@ -68,7 +68,7 @@ struct AIStatusBar: View {
             }
             VStack(alignment: .leading, spacing: 4) {
                 Text("Connection").font(.caption.weight(.semibold))
-                Text(verbatim: connection ?? String(localized: "AI is not connected"))
+                Text(verbatim: connection ?? tr("AI is not connected"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -106,7 +106,7 @@ struct AIStatusBar: View {
     /// 모델 ID를 짧게 보여 준다. 끝이 effort(low · medium · high 등)면 "모델 · effort"로 나눈다. 비어 있으면 CLI · 프로바이더 기본 모델.
     static func modelLabel(_ settings: AISettings?) -> String? {
         guard let settings else { return nil }
-        guard !settings.model.isEmpty else { return String(localized: "Default model") }
+        guard !settings.model.isEmpty else { return tr("Default model") }
         let parts = settings.model.split(separator: "-")
         let efforts: Set<String> = ["minimal", "low", "medium", "high", "xhigh", "max"]
         if parts.count > 1, let last = parts.last, efforts.contains(last.lowercased()) {
@@ -116,10 +116,10 @@ struct AIStatusBar: View {
     }
 
     static func tokens(_ count: Int) -> String {
-        count.formatted(.number.notation(.compactName))
+        count.formatted(.number.notation(.compactName).locale(CoreLanguage.locale))
     }
 
     static func cost(_ dollars: Double) -> String {
-        dollars.formatted(.currency(code: "USD").precision(.fractionLength(dollars < 1 ? 3 : 2)))
+        dollars.formatted(.currency(code: "USD").precision(.fractionLength(dollars < 1 ? 3 : 2)).locale(CoreLanguage.locale))
     }
 }
