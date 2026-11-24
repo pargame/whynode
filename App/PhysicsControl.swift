@@ -70,17 +70,10 @@ struct PhysicsControl: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 6) {
-                ForEach(PhysicsSettings.Preset.allCases) { preset in
-                    Button(preset.title) { settings = preset.settings }
-                        .disabled(settings == preset.settings)
-                        .help(preset.help)
-                }
-                Button("Reset to Defaults") { settings = .default }
-                    .disabled(settings == .default)
-            }
-            .controlSize(.small)
-            .frame(maxWidth: .infinity)
+            Button("Reset to Defaults") { settings = .default }
+                .controlSize(.small)
+                .disabled(settings == .default)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -121,20 +114,3 @@ struct PhysicsControl: View {
     }
 }
 
-extension PhysicsSettings.Preset {
-    var title: LocalizedStringKey {
-        switch self {
-        case .compact: "Compact"
-        case .spread: "Spread"
-        case .push: "Push Apart"
-        }
-    }
-
-    var help: LocalizedStringKey {
-        switch self {
-        case .compact: "Pull nodes close to fit more on screen"
-        case .spread: "Spread nodes out for easier reading"
-        case .push: "Negative tension pushes linked nodes apart"
-        }
-    }
-}

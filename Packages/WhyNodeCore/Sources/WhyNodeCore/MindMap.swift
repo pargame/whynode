@@ -300,7 +300,7 @@ public struct MindMap: Equatable, Sendable {
     /// 자동 배치 결과 반영. 사용자가 고정한 노드는 건드리지 않는다.
     public mutating func applyLayout(_ positions: [WID: (x: Double, y: Double)]) {
         for (id, point) in positions {
-            guard let i = indexById[id], !file.nodes[i].position.pinned else { continue }
+            guard let i = indexById[id], !file.nodes[i].position.pinned, point.x.isFinite, point.y.isFinite else { continue }
             file.nodes[i].position.x = point.x
             file.nodes[i].position.y = point.y
         }
@@ -309,7 +309,8 @@ public struct MindMap: Equatable, Sendable {
     /// 시뮬레이션 결과 반영 (SPEC 2.6). 루트만 제자리에 두고 나머지는 고정 여부와 상관없이 옮긴다.
     public mutating func arrange(_ positions: [WID: (x: Double, y: Double)]) {
         for (id, point) in positions where id != rootId {
-            guard let i = indexById[id] else { continue }
+            // 저장 형식(JSON)은 무한대 · NaN을 쓸 수 없다.
+            guard let i = indexById[id], point.x.isFinite, point.y.isFinite else { continue }
             file.nodes[i].position.x = point.x
             file.nodes[i].position.y = point.y
         }

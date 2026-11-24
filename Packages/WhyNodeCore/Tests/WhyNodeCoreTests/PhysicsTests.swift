@@ -97,13 +97,17 @@ struct PhysicsTests {
         #expect(pushed.isFinite && pushed > none)
     }
 
-    @Test func 프리셋은_범위_안이고_스스로_멈춘다() {
-        for preset in PhysicsSettings.Preset.allCases {
-            #expect(preset.settings.clamped == preset.settings)
-            var sim = ForceSimulation(map: crowdedMap(), settings: preset.settings)
-            var ticks = 0
-            while sim.tick() { ticks += 1 }
-            #expect(sim.isSettled && ticks < ForceSimulation.maxTicks, "\(preset)")
+    @Test func 범위_끝값에서도_좌표는_유한하다() {
+        let r = PhysicsSettings.self
+        let extremes = [
+            PhysicsSettings(repel: r.repelRange.upperBound, tension: r.tensionRange.upperBound, linkDistance: r.linkDistanceRange.upperBound, gravity: r.gravityRange.upperBound),
+            PhysicsSettings(repel: 0, tension: r.tensionRange.lowerBound, linkDistance: 0, gravity: r.gravityRange.upperBound),
+            PhysicsSettings(repel: r.repelRange.upperBound, tension: r.tensionRange.upperBound, linkDistance: 0, gravity: 0),
+        ]
+        for settings in extremes {
+            var sim = ForceSimulation(map: crowdedMap(), settings: settings)
+            while sim.tick() {}
+            #expect(sim.positions.values.allSatisfy { $0.x.isFinite && $0.y.isFinite }, "\(settings)")
         }
     }
 
