@@ -21,6 +21,8 @@ struct WhyNodeApp: App {
         }
         .windowResizability(.contentSize)
         .defaultLaunchBehavior(.presented)
+        // 윈도우 메뉴에는 넣지 않는다. 파일 > 프로젝트 보기(⇧⌘O)로 연다.
+        .commandsRemoved()
 
         DocumentGroup(newDocument: { WhyNodeDocument() }) { file in
             MapScreen(document: file.document)
@@ -47,6 +49,8 @@ struct WhyNodeApp: App {
                 .environment(\.locale, settings.language.locale)
         }
         .windowResizability(.contentMinSize)
+        // 도움말 메뉴(⌘?)와 겹치므로 윈도우 메뉴에는 넣지 않는다.
+        .commandsRemoved()
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {

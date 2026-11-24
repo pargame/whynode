@@ -96,6 +96,7 @@ struct HelpContent: View {
                 .font(.title3.weight(.semibold))
             Grid(alignment: .leading, horizontalSpacing: 18, verticalSpacing: 8) {
                 row("⌘N", "New Project")
+                row("⇧⌘O", "Show Projects")
                 row("⌘Z  ⌘⇧Z", "Undo and Redo")
                 row("⌫", "Delete the focused node")
                 row("Esc", "Close the style panel or an empty question input")

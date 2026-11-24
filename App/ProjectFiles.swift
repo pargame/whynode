@@ -80,6 +80,7 @@ struct ProjectCreator {
 struct NewProjectCommands: Commands {
     let settings: SettingsStore
     @Environment(\.openDocument) private var openDocument
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
         CommandGroup(replacing: .newItem) {
@@ -89,6 +90,10 @@ struct NewProjectCommands: Commands {
                 Task { try? await creator.create() }
             }
             .keyboardShortcut("n")
+            // 시작 화면 창은 윈도우 메뉴에서 뺐으므로, 창을 모두 닫아도 여기서 돌아갈 수 있게 한다.
+            // ⇧⌘P는 문서 앱 기본 메뉴의 페이지 설정과 겹쳐 ⇧⌘O를 쓴다.
+            Button(tr("Show Projects")) { openWindow(id: LauncherView.windowId) }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
         }
     }
 }
