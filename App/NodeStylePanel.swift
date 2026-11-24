@@ -52,6 +52,23 @@ struct NodeStylePanel: View {
         .onTapGesture { closePalette() }
     }
 
+    /// [−] · [+]는 기호 모양과 상관없이 같은 크기의 정사각형으로 둔다.
+    private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            closePalette()
+            action()
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 11, weight: .semibold))
+                .frame(width: 24, height: 24)
+                .background(Color.secondary.opacity(0.15), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+                .contentShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .opacity(enabled ? 1 : 0.4)
+    }
+
     private func closePalette() {
         guard openPalette != nil else { return }
         withAnimation(.snappy(duration: 0.25)) { openPalette = nil }
@@ -61,16 +78,12 @@ struct NodeStylePanel: View {
         HStack {
             Text(title)
             Spacer()
-            Button { closePalette(); set(value - 0.1) } label: { Image(systemName: "minus") }
-                .disabled(value <= range.lowerBound)
+            stepButton("minus", enabled: value > range.lowerBound) { set(value - 0.1) }
             Text(verbatim: value.formatted(.number.precision(.fractionLength(1))) + "×")
                 .monospacedDigit()
                 .frame(width: 40)
-            Button { closePalette(); set(value + 0.1) } label: { Image(systemName: "plus") }
-                .disabled(value >= range.upperBound)
+            stepButton("plus", enabled: value < range.upperBound) { set(value + 0.1) }
         }
-        .buttonStyle(.bordered)
-        .controlSize(.small)
     }
 }
 
@@ -114,13 +127,14 @@ private struct ColorRow: View {
                 .help("Custom Color")
             }
             if expanded {
-                PaletteGrid(selected: selected) { hex in pick(hex) }
+                // 격자에서 고를 때는 펼친 채로 두어, 노드에 적용된 색을 보며 다시 고를 수 있게 한다.
+                PaletteGrid(selected: selected) { hex in onSelect(hex) }
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
     }
 
-    /// 색을 고르면(프리셋 · 기본 포함) 펼친 격자를 접는다.
+    /// 기본 · 프리셋을 고르면 펼친 격자를 접는다(격자 바깥을 누른 것으로 본다).
     private func pick(_ value: String?) {
         onSelect(value)
         withAnimation(.snappy(duration: 0.25)) { openPalette = nil }
