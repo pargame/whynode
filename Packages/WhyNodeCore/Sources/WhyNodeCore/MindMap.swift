@@ -203,7 +203,8 @@ public struct MindMap: Equatable, Sendable {
     /// 노드에 쌓아 두는 미사용 추가 질문의 최대 개수 (SPEC 2.3)
     public static let maxOpenSuggestions = 12
 
-    /// 추가 질문 다시 받기 결과: 새 질문을 미사용 목록 맨 앞에 쌓는다. 미사용이 최대 개수를 넘으면 가장 오래된 것부터 뺀다.
+    /// 추가 질문 다시 받기 결과: 새 질문을 미사용 목록 맨 앞에 쌓는다. 화면은 최대 개수에 닿으면 더 받지 않으며,
+    /// 그래도 넘치는 경우(자동 보충 등)에만 가장 오래된 것부터 뺀다.
     /// 사용된 항목은 그대로 둔다. 답변이 있는(done) 노드에만 반영해, 질문 수정 · 다시 받기 중에 늦게 온 결과가 붙지 않게 한다.
     public mutating func addSuggestions(_ id: WID, _ texts: [String], now: Date = Date()) {
         guard self[id]?.status == .done, !texts.isEmpty else { return }

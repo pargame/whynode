@@ -67,10 +67,6 @@ struct MapScreen: View {
             TextField(prompt?.placeholder ?? "", text: $promptText)
             Button("OK") { submitPrompt() }
             Button("Cancel", role: .cancel) { prompt = nil }
-        } message: {
-            if case .edit(let id) = prompt, !map.childIDs(of: id).isEmpty {
-                Text("The answer will be regenerated. Child nodes are kept.")
-            }
         }
         .alert("Notice", isPresented: noticeBinding) {
             Button("OK", role: .cancel) { ai.notice = nil; importError = nil }
@@ -208,6 +204,7 @@ struct MapScreen: View {
     private func bottomRow(for node: Node, textScale: Double, zoom: CGFloat) -> some View {
         let composing = composingFor == node.id
         let suggesting = ai.suggesting.contains(node.id)
+        let full = node.suggestions.filter { $0.usedBy == nil }.count >= MindMap.maxOpenSuggestions
         return HStack(spacing: Self.chipSpacing) {
             Group {
                 if composing {
@@ -243,11 +240,12 @@ struct MapScreen: View {
             .onTapGesture { if !composing { startCompose(node.id) } }
 
             if !composing {
-                chip((Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
+                // 미사용 추가 질문이 최대 개수면 더 받지 않는다(오래된 질문을 몰래 지우지 않는다).
+                chip((full ? Text("Up to \(MindMap.maxOpenSuggestions) questions") : Text(Image(systemName: "arrow.clockwise")) + Text(verbatim: "  ") + Text("3 Other Questions")).foregroundStyle(.secondary), textScale: textScale, zoom: zoom, width: Self.halfChipTextWidth) {
                     ai.requestSuggestions(for: node.id, in: document, undoManager: undoManager, limit: 3)
                 }
-                .disabled(suggesting)
-                .opacity(suggesting ? 0.5 : 1)
+                .disabled(suggesting || full)
+                .opacity(suggesting || full ? 0.5 : 1)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
@@ -374,9 +372,7 @@ struct MapScreen: View {
     @ViewBuilder
     private func menu(for node: Node) -> some View {
         // 다른 곳에 버튼이 있는 기능(직접 질문 · 다른 질문 3개 · 다시 답변)은 메뉴에 두지 않는다.
-        if node.status != .empty {
-            Button("Edit Question") { ask(.edit(node.id), initial: node.question) }
-        }
+        // 질문 수정은 사실상 지우고 새로 묻는 것과 같아 두지 않는다.
         if node.textScale != 1 {
             Button("Reset Text Size") { resetTextScale(node.id) }
         }
@@ -430,11 +426,6 @@ struct MapScreen: View {
             document.perform("Enter Topic", undoManager: undoManager) { $0.setRootQuestion(text) }
             renameProject(from: previous)
             if map.root.status == .pending { start(map.rootId) }
-        case .edit(let id):
-            let previous = map.root.question
-            document.perform("Edit Question", undoManager: undoManager) { $0.editQuestion(id, to: text) }
-            if id == map.rootId { renameProject(from: previous) }
-            if map[id]?.status == .pending { start(id) }
         }
     }
 
@@ -686,21 +677,10 @@ struct MapScreen: View {
     }
 }
 
+/// 알림창 입력. 지금은 새 프로젝트의 주제 입력에만 쓴다.
 enum PromptRequest: Equatable {
     case root
-    case edit(WID)
 
-    var title: LocalizedStringKey {
-        switch self {
-        case .root: "What are you curious about?"
-        case .edit: "Edit Question"
-        }
-    }
-
-    var placeholder: LocalizedStringKey {
-        switch self {
-        case .root: "A topic or question (e.g. quantum mechanics)"
-        case .edit: "Enter a question"
-        }
-    }
+    var title: LocalizedStringKey { "What are you curious about?" }
+    var placeholder: LocalizedStringKey { "A topic or question (e.g. quantum mechanics)" }
 }

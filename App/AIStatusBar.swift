@@ -20,10 +20,11 @@ struct AIStatusBar: View {
                     .fill(connection == nil ? Color.gray : running > 0 ? Color.orange : Color.green)
                     .frame(width: 8, height: 8)
                     .symbolEffect(.pulse, isActive: running > 0)
+                // 평소(연결됨 · 쉬는 중)에는 글자 없이 점만 둔다. 요청 중이거나 연결이 안 됐을 때만 글로 알린다.
                 if running > 0 {
-                    Text("\(running) running")
-                } else {
-                    Text(connection == nil ? "Not connected" : "Ready")
+                    Text("Answering \(running)")
+                } else if connection == nil {
+                    Text("AI not connected")
                 }
                 if queued > 0 {
                     Text("\(queued) queued").foregroundStyle(.secondary)

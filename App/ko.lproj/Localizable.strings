@@ -49,20 +49,17 @@
 "Retry" = "다시 시도";
 
 /* 맵 화면 */
-"The answer will be regenerated. Child nodes are kept." = "답변은 새로 받고, 하위 노드는 유지됩니다.";
 "Notice" = "알림";
 "Ask Your Own" = "직접 질문";
 "3 Other Questions" = "다른 질문 3개";
 "Refresh Suggestions" = "추가 질문 다시 받기";
 "Regenerate Answer" = "답변 다시 받기";
-"Edit Question" = "질문 수정";
 "Reset Text Size" = "글자 크기 원래대로";
 "Expand Branch" = "가지 펼치기";
 "Collapse Branch" = "가지 접기";
 "Delete" = "삭제";
 "What are you curious about?" = "무엇이 궁금한가요?";
 "A topic or question (e.g. quantum mechanics)" = "주제나 질문 (예: 양자역학)";
-"Enter a question" = "질문을 입력하세요";
 
 /* 실행 취소 이름 */
 "Answer Failed" = "답변 실패";
@@ -128,10 +125,7 @@
 "Sample questions: %@" = "받은 예시 질문: %@";
 
 /* AI 상태 막대 */
-"%lld running" = "%lld개 요청 중";
 "%lld queued" = "%lld개 대기";
-"Not connected" = "연결 안 됨";
-"Ready" = "준비됨";
 "%@ tokens" = "%@ 토큰";
 "This Project" = "이 프로젝트";
 "This Session" = "이번 실행";
@@ -154,3 +148,6 @@
 
 /* 직접 질문 입력 */
 "Ask your own question" = "직접 질문을 입력하세요";
+"Answering %lld" = "답변 생성 중 %lld";
+"AI not connected" = "AI 연결 안 됨";
+"Up to %lld questions" = "최대 %lld개";
