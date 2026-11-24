@@ -1,50 +1,52 @@
 # WhyNode
 
-질문 하나와 AI 답변 하나를 노드로 묶어, 꼬리에 꼬리를 무는 질문으로 지식 마인드맵을 키워 가는 macOS · iPadOS 앱이다.
+**English** | [한국어](README.ko.md)
 
-- 기획: `CONCEPT.md`
-- 명세: `SPEC.md`
-- 진행 현황과 다음 할 일: `STATUS.md`
+WhyNode is a native macOS and iPadOS app for building interactive knowledge mind maps through follow-up questions. Each node pairs a single question with a focused AI answer and suggests the next questions to explore.
 
-## 구조
+- Concept & UX: [`CONCEPT.md`](CONCEPT.md)
+- Specification & Architecture: [`SPEC.md`](SPEC.md)
+- Progress & Roadmap: [`STATUS.md`](STATUS.md)
 
-| 경로 | 내용 |
+## Project Structure
+
+| Path | Description |
 | :--- | :--- |
-| `Packages/WhyNodeCore` | 화면이 없는 로직. 노드 모델, `.whynode` 저장 형식, 무결성 복구, AI 맥락 조립, 응답 검증, 답변 서식, 프로바이더 연결, 시뮬레이션 |
-| `App` | SwiftUI 문서 앱(`DocumentGroup`) |
-| `project.yml` | XcodeGen 프로젝트 정의. `WhyNode.xcodeproj`는 여기서 생성하므로 커밋에서 뺀다. |
+| `Packages/WhyNodeCore` | Headless Swift core package: node model, `.whynode` codec & migration, integrity recovery, AI context assembly, response validation, answer formatting, AI providers, and force-directed layout simulation |
+| `App` | Multiplatform SwiftUI document app (`DocumentGroup`) |
+| `project.yml` | XcodeGen specification (`WhyNode.xcodeproj` is generated from this file and excluded from Git) |
 
-## AI 연결과 토큰 절감
+## AI Connections & Token Optimization
 
-요청마다 그 노드에 필요한 맥락만 트리에서 골라 보낸다(SPEC 6.1). 이 맥락은 작아서, CLI가 기본으로 덧붙이는 지시문 · 도구 정의 · 사용자 규칙이 오히려 더 커지기 쉽다. 아래 설정은 그 덧붙임을 걷어 내기 위한 것이다. 인자를 바꿨다면 `STATUS.md`의 실측 테스트로 토큰을 다시 잰다.
+For every request, WhyNode assembles only the tree context relevant to the target node (see `SPEC.md` §6.1). Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead. Whenever you change these flags, re-measure token usage using the live tests in `STATUS.md`.
 
-| 연결 | 설정 | 하는 일 | 실측 |
+| Connection | Configuration | Purpose | Measured Impact |
 | :--- | :--- | :--- | :--- |
-| claude CLI (요청마다 실행) | `--system-prompt`로 기본 지시문 교체, `--tools ""`, `--strict-mcp-config`, `--setting-sources ""`, `--disable-slash-commands`, `--no-session-persistence` | Claude Code의 기본 지시문, 도구, 사용자 설정, MCP를 싣지 않는다. | 약 18.5k → 1.1k |
-| | `DISABLE_PROMPT_CACHING=1` | 1시간 캐시 쓰기를 끈다. 요청 내용이 매번 달라 캐시를 다시 읽을 일이 없는데, 캐시 쓰기는 입력 단가가 두 배다. | 비용 약 25% 절감 |
-| agy (상시 연결 `agy acp`) | `--agent whynode` | 도구가 없는 전용 에이전트를 쓴다. 에이전트 본문이 곧 시스템 프롬프트라 기본 코딩 에이전트의 지시문과 도구 선언이 빠진다. ACP의 `systemPrompt`는 덧붙이기만 되고 바꿀 수는 없어서 이 방법을 택했다. | 약 11.7k → 2.85k |
-| | `--gemini-dir <빈 임시 폴더>` | 사용자 `~/.gemini`의 전역 규칙, 스킬, 플러그인, MCP를 읽지 않는다. WhyNode 세션 기록도 거기에 남기지 않는다. 로그인은 Keychain에서 읽으므로 그대로 된다. | |
-| | 요청마다 새 세션 | 대화 기록이 쌓이지 않게 한다. 세션을 이어 쓰면 토큰이 늘고, 다른 가지의 맥락이 섞이고, 동시 요청이 차례를 기다리게 된다. | |
-| API 키 (Gemini · Claude · OpenAI) | 없음 | WhyNode 지시문과 맥락만 보낸다. | |
+| **Claude CLI** (one-shot per request) | `--system-prompt` override, `--tools ""`, `--strict-mcp-config`, `--setting-sources ""`, `--disable-slash-commands`, `--no-session-persistence` | Excludes Claude Code's built-in prompt, tools, user settings, and MCP servers. | ~18.5k → 1.1k tokens |
+| | `DISABLE_PROMPT_CACHING=1` | Disables 1-hour cache writes. Because each node request has unique context, cache writes rarely hit while doubling input token cost. | ~25% cost reduction |
+| **agy** (persistent `agy acp`) | `--agent whynode` | Uses a tool-free dedicated agent whose body serves as the system prompt, removing default coding-agent instructions and tool declarations. | ~11.7k → 2.85k tokens |
+| | `--gemini-dir <empty temp dir>` | Prevents loading global rules, skills, plugins, and MCP servers from `~/.gemini` and keeps WhyNode sessions out of it. Authentication still works via Keychain. | |
+| | Fresh session per request | Prevents conversation history accumulation, cross-branch context bleed, and serialization of concurrent requests. | |
+| **API Keys** (Gemini / Claude / OpenAI) | None | Sends only the WhyNode system prompt and assembled node context. | |
 
-- 전용 에이전트 파일(`<임시 폴더>/WhyNodeCLI/.agents/agents/whynode.md`)은 agy에 연결할 때마다 현재 시스템 프롬프트로 새로 쓴다. 손으로 고칠 파일이 아니다.
-- claude의 `--bare`(최소 모드)는 구독 로그인을 읽지 못해서 쓰지 않는다.
-- 앱은 구독 로그인 토큰을 직접 읽거나 재사용하지 않는다(SPEC 5.2). 로그인은 CLI가 가진 것을 그대로 쓴다.
+- The dedicated `agy` agent file (`<temp>/WhyNodeCLI/.agents/agents/whynode.md`) is regenerated from the active system prompt on every connection; do not edit it manually.
+- Claude's `--bare` flag is not used because it cannot read subscription authentication.
+- WhyNode never reads or reuses subscription tokens directly (`SPEC.md` §5.2); CLI authentication is delegated entirely to the official CLI.
 
-## 빌드
+## Building from Source (macOS)
 
-시스템 기본 Xcode 설정은 건드리지 않는다. 명령마다 `DEVELOPER_DIR`로 Xcode를 고른다.
+Select the target Xcode per command via `DEVELOPER_DIR` without modifying the system-wide `xcode-select` setting:
 
 ```zsh
 export DEVELOPER_DIR=/Applications/Xcode-26.1.1.app/Contents/Developer
 
-# 코어 테스트
+# Run core unit tests
 (cd Packages/WhyNodeCore && swift test)
 
-# Mac 앱
+# Build and launch the macOS app
 xcodegen generate
 xcodebuild -project WhyNode.xcodeproj -scheme WhyNode -destination 'platform=macOS' -derivedDataPath DerivedData build
 open WhyNode.app
 ```
 
-리포 루트의 `WhyNode.app`은 빌드 결과(`DerivedData/Build/Products/Debug/WhyNode.app`)로 가는 바로가기다. 빌드할 때마다 최신 앱을 가리키며, 커밋하지 않는다.
+`WhyNode.app` at the repository root is a local symlink to `DerivedData/Build/Products/Debug/WhyNode.app` (not committed) so it always points to the latest debug build.
