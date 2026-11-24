@@ -26,10 +26,15 @@ targets:
         PRODUCT_NAME: WhyNode
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
-        ENABLE_HARDENED_RUNTIME: NO
+        ENABLE_HARDENED_RUNTIME: YES
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         DEVELOPMENT_TEAM: ""
+      configs:
+        # 임시 서명(-)에서는 Xcode가 Hardened Runtime을 서명에 넣지 않으므로 배포용 빌드에만 직접 넣는다.
+        # 개발용 빌드는 미리보기 라이브러리가 서명 검사에 걸리지 않도록 그대로 둔다.
+        Release:
+          OTHER_CODE_SIGN_FLAGS: "--options=runtime"
     info:
       path: App/Info.plist
       properties:

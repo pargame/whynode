@@ -159,3 +159,24 @@ struct UsageAndCancelTests {
     }
 }
 #endif
+
+@Suite("입력 안전")
+struct InputSafetyTests {
+    @Test func 모델_ID는_허용_문자만_받는다() async {
+        #expect(GeminiProvider.isValidModelID("gemini-3.8-flash"))
+        for bad in ["", "gemini flash", "../models", "a/b", "x?key=1", "m#f", "모델"] {
+            #expect(!GeminiProvider.isValidModelID(bad), "\(bad)")
+        }
+        await #expect(throws: ProviderError.invalidModel("a b")) {
+            _ = try await GeminiProvider(apiKey: "k", model: "a b").suggest(ContextPackage(kind: .suggest, topic: "t", path: [], question: "q", index: []))
+        }
+    }
+
+    #if os(macOS)
+    @Test func CLI_찾기는_도구_이름을_셸_명령으로_실행하지_않는다() throws {
+        let marker = FileManager.default.temporaryDirectory.appendingPathComponent("whynode-injection-\(UUID().uuidString)")
+        #expect(CLIProvider.locate("nope; touch \(marker.path)") == nil)
+        #expect(!FileManager.default.fileExists(atPath: marker.path))
+    }
+    #endif
+}

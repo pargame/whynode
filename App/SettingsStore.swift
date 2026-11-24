@@ -184,11 +184,13 @@ enum Keychain {
 
     static func setAPIKey(_ key: String, for provider: ProviderKind) throws {
         let data = Data(key.utf8)
-        let status = SecItemUpdate(baseQuery(provider) as CFDictionary, [kSecValueData as String: data] as CFDictionary)
+        // 이 맥에만 두고 백업 복원으로 다른 기기에 옮겨지지 않게 한다(설정 화면 안내와 같음). 기존 항목도 갱신 때 함께 바꾼다.
+        let accessible = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
+        let status = SecItemUpdate(baseQuery(provider) as CFDictionary, [kSecValueData as String: data, kSecAttrAccessible as String: accessible] as CFDictionary)
         if status == errSecItemNotFound {
             var item = baseQuery(provider)
             item[kSecValueData as String] = data
-            item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
+            item[kSecAttrAccessible as String] = accessible
             let added = SecItemAdd(item as CFDictionary, nil)
             guard added == errSecSuccess else { throw KeychainError(status: added) }
         } else if status != errSecSuccess {

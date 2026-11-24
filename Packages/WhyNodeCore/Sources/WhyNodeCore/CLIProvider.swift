@@ -161,7 +161,8 @@ public struct CLIProvider: AIProvider {
         }
         let shell = Process()
         shell.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        shell.arguments = ["-lc", "command -v \(tool)"]
+        // 도구 이름은 셸 문자열에 끼우지 않고 위치 인자($1)로 넘긴다.
+        shell.arguments = ["-lc", "command -v -- \"$1\"", "zsh", tool]
         let pipe = Pipe()
         shell.standardOutput = pipe
         shell.standardError = FileHandle.nullDevice

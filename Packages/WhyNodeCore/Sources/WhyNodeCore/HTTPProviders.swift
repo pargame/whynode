@@ -67,7 +67,10 @@ public struct GeminiProvider: AIProvider {
 
     private func generate(_ context: ContextPackage) async throws -> String {
         guard !model.isEmpty else { throw ProviderError.missingModel }
-        let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
+        // 모델 ID는 설정에서 직접 입력할 수 있고 URL 경로에 들어가므로, 허용 문자만 받는다(공백 · / · ? 등으로 경로가 바뀌거나 앱이 멈추지 않게).
+        guard Self.isValidModelID(model), let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent") else {
+            throw ProviderError.invalidModel(model)
+        }
         let body: [String: Any] = [
             "systemInstruction": ["parts": [["text": Prompt.system]]],
             "contents": [["role": "user", "parts": [["text": Prompt.userMessage(for: context)]]]],
@@ -81,6 +84,11 @@ public struct GeminiProvider: AIProvider {
         let text = parts.compactMap { $0["text"] as? String }.joined()
         guard !text.isEmpty else { throw ProviderError.emptyResponse }
         return text
+    }
+
+    static func isValidModelID(_ model: String) -> Bool {
+        !model.isEmpty && model.unicodeScalars.allSatisfy { CharacterSet(charactersIn: "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789._-").contains($0) }
+            && !model.contains("..")
     }
 
     /// 텍스트 생성을 지원하는 모델 목록

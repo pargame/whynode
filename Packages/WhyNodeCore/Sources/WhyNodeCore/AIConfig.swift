@@ -94,6 +94,7 @@ public enum ProviderError: Error, LocalizedError, Equatable {
     case notSupported(String)
     case missingAPIKey
     case missingModel
+    case invalidModel(String)
 
     public var errorDescription: String? {
         switch self {
@@ -106,6 +107,7 @@ public enum ProviderError: Error, LocalizedError, Equatable {
         case .notSupported(let what): L("\(what) isn't supported yet.")
         case .missingAPIKey: L("No API key. Enter one in Settings.")
         case .missingModel: L("Choose a model.")
+        case .invalidModel(let model): L("“\(model)” isn't a valid model ID. Use only letters, numbers, and . _ -")
         }
     }
 }

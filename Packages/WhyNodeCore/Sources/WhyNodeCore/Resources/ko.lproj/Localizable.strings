@@ -14,6 +14,7 @@
 "%@ isn't supported yet." = "%@은(는) 아직 지원하지 않습니다.";
 "No API key. Enter one in Settings." = "API 키가 없습니다. 설정에서 입력해 주세요.";
 "Choose a model." = "모델을 선택해 주세요.";
+"“%@” isn't a valid model ID. Use only letters, numbers, and . _ -" = "“%@”은(는) 올바른 모델 ID가 아닙니다. 영문, 숫자, . _ - 만 쓸 수 있습니다.";
 "This isn't a WhyNode document." = "WhyNode 문서 형식이 아닙니다.";
 "This document is from a newer version (schemaVersion %lld). Please update the app." = "더 새로운 버전(schemaVersion %lld)의 문서입니다. 앱을 업데이트해 주세요.";
 "This document has no schemaVersion." = "schemaVersion이 없는 문서입니다.";
