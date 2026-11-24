@@ -643,6 +643,13 @@ struct MapScreen: View {
         focusedId = nil
         closeStylePanel()
         canvas.startSimulation(ForceSimulation(map: map, settings: settings.physics), manual: true)
+        // 노드를 끄는 도중에 시작하면(스페이스) 그 노드를 지금 손가락 위치에 바로 잡는다. 다음 이동을 기다리면 한 프레임 원래 자리로 돌아가 보인다.
+        if let drag = canvas.dragging, let node = map[drag.id] {
+            let origin = CGPoint(x: node.position.x, y: node.position.y)
+            let scale = canvas.effectiveScale
+            canvas.holdOrigin = origin
+            canvas.simulation?.hold(drag.id, at: (origin.x + drag.translation.width / scale, origin.y + drag.translation.height / scale))
+        }
         ticker.start { stepPhysics() }
     }
 
