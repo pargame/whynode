@@ -30,7 +30,7 @@ struct NodeBubble: View, Equatable {
     }
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
-    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail, size: node.sizeScale) }
+    private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail, size: node.displayScale) }
 
     /// `size`는 노드 크기 배율. 원은 지름이 함께 커져 계속 원으로 보인다.
     static func shape(expanded: Bool, size: Double) -> RoundedRectangle {
@@ -165,7 +165,7 @@ private struct NodeBubbleBody: View, Equatable {
     @State private var compactTitleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
-    private var size: CGFloat { node.sizeScale }
+    private var size: CGFloat { node.displayScale }
     private var shape: RoundedRectangle { NodeBubble.shape(expanded: showsDetail, size: size) }
     /// 사용자가 고른 글자 색. 없으면 기본(주 · 보조 색)
     private var textColor: Color? { Theme.nodeColor(node.textColor) }

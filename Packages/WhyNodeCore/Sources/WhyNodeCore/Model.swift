@@ -195,6 +195,12 @@ extension Node {
         return (min(max(value, sizeScaleRange.lowerBound), sizeScaleRange.upperBound) * 100).rounded() / 100
     }
 
+    /// 루트는 화면에서 이만큼 더 크게 그린다. 편집 패널의 노드 크기(`sizeScale`)는 그 위에 곱한다.
+    public static let rootScale = 1.3
+
+    /// 화면 · 시뮬레이션에 쓰는 실제 크기 배율. 루트는 `rootScale`을 한 번 더 곱한다.
+    public var displayScale: Double { sizeScale * (parentId == nil ? Self.rootScale : 1) }
+
     /// 꾸밈(노드 크기 · 색)이 기본과 다른지
     public var hasCustomStyle: Bool { sizeScale != 1 || fillColor != nil || textColor != nil }
 }

@@ -292,6 +292,16 @@ struct MindMapTests {
         #expect(!map.root.hasCustomStyle)
     }
 
+    @Test func 루트는_화면에서_기본으로_더_크게_그린다() throws {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        let child = try unwrap(map.addCustomChild(of: map.rootId, question: "자식", now: t0))
+        #expect(map.root.displayScale == Node.rootScale)
+        #expect(try unwrap(map[child]).displayScale == 1)
+        map.setSizeScale(map.rootId, 1.5, now: t0)
+        #expect(map.root.displayScale == 1.5 * Node.rootScale)
+    }
+
     @Test func 알_수_없는_색과_범위_밖_크기는_열_때_고친다() throws {
         var map = MindMap.new(now: t0)
         var file = map.file

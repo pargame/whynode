@@ -230,7 +230,7 @@ struct MapScreen: View {
         return VStack(spacing: Self.chipSpacing) {
             ChipList(count: open.count, maxVisible: Self.maxVisibleChips, spacing: Self.chipSpacing) {
                 ForEach(open) { suggestion in
-                    chip(Text(suggestion.text), zoom: zoom, metrics: ChipMetrics(size: node.sizeScale)) { pick(suggestion, of: node.id) }
+                    chip(Text(suggestion.text), zoom: zoom, metrics: ChipMetrics(size: node.displayScale)) { pick(suggestion, of: node.id) }
                 }
             }
             bottomRow(for: node, zoom: zoom)
@@ -239,7 +239,7 @@ struct MapScreen: View {
 
     /// `직접 질문`을 누르면 그 칩이 줄 전체로 넓어지며 입력란이 되고, `다른 질문 3개`는 오른쪽으로 밀려 사라진다.
     private func bottomRow(for node: Node, zoom: CGFloat) -> some View {
-        let metrics = ChipMetrics(size: node.sizeScale)
+        let metrics = ChipMetrics(size: node.displayScale)
         let composing = composingFor == node.id
         let suggesting = ai.suggesting.contains(node.id)
         let full = node.suggestions.filter { $0.usedBy == nil }.count >= MindMap.maxOpenSuggestions

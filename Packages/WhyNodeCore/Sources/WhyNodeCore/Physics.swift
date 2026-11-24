@@ -114,7 +114,7 @@ public struct ForceSimulation: Sendable {
             }
         }
         ids = newIds
-        radius = map.nodes.map { Self.nodeRadius * $0.sizeScale }
+        radius = map.nodes.map { Self.nodeRadius * $0.displayScale }
         position = newPosition
         velocity = newVelocity
         fixed = newFixed

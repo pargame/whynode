@@ -131,7 +131,7 @@ enum SnapshotRenderer {
         let styled = styledMap.root
 
         func fit(_ question: String) -> Node {
-            Node(parentId: nil, question: question, status: .done, createdAt: now, updatedAt: now)
+            Node(parentId: WID(), question: question, status: .done, createdAt: now, updatedAt: now)
         }
         func bubble(_ node: Node, focused: Bool, glow: NodeGlow = .none) -> some View {
             NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, glow: glow, onRetry: {})
