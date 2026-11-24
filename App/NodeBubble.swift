@@ -20,15 +20,15 @@ struct NodeBubble: View, Equatable {
     var textScale: CGFloat = 1
     /// 화면 배율. 노드는 배율만큼 커지고 작아지지만 테두리는 화면에서 같은 굵기로 보이도록 나눠 준다.
     var zoom: CGFloat = 1
-    /// 호버한 노드이거나 그 이웃이면 테두리 안쪽으로 빛이 번진다.
-    var isHighlighted = false
+    /// 호버한 노드이거나 그 이웃이면 테두리 안쪽으로 빛이 번진다. 참조선으로만 이어진 이웃은 점선 빛이다.
+    var glow: NodeGlow = .none
     let onRetry: () -> Void
 
     /// 위치가 바뀌는 매 프레임마다 다시 계산하지 않도록, 그리는 데 쓰는 값만 비교한다.
     static func == (lhs: NodeBubble, rhs: NodeBubble) -> Bool {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isDimmed == rhs.isDimmed
             && lhs.isSuggesting == rhs.isSuggesting && lhs.isQuiet == rhs.isQuiet && lhs.textScale == rhs.textScale
-            && lhs.zoom == rhs.zoom && lhs.isHighlighted == rhs.isHighlighted
+            && lhs.zoom == rhs.zoom && lhs.glow == rhs.glow
     }
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
@@ -48,24 +48,31 @@ struct NodeBubble: View, Equatable {
             .overlay(shape.fill(Theme.canvas.opacity(isDimmed ? 0.7 : 0)).allowsHitTesting(false))
             .overlay {
                 // 프레넬 효과처럼 가장자리가 가장 밝고 안쪽으로 갈수록 옅어지는 빛. 테두리 굵기처럼 화면 배율과 상관없이 같게 보인다.
+                // 점선 빛은 참조선과 같은 박자(6 · 5)로 끊어, 어느 선으로 이어진 이웃인지 모양으로 구분한다.
                 ZStack {
-                    if isHighlighted {
+                    if glow != .none {
+                        let dash: [CGFloat] = glow == .dashed ? [6 / zoom, 5 / zoom] : []
                         ZStack {
-                            shape.stroke(Theme.glow.opacity(0.7), lineWidth: 10 / zoom)
+                            shape.stroke(Theme.glow.opacity(0.7), style: StrokeStyle(lineWidth: 10 / zoom, dash: dash))
                                 .blur(radius: 6 / zoom)
                                 .clipShape(shape)
-                            shape.stroke(Theme.glow.opacity(0.9), lineWidth: 1.5 / zoom)
+                            shape.stroke(Theme.glow.opacity(0.9), style: StrokeStyle(lineWidth: 1.5 / zoom, lineCap: .round, dash: dash))
                         }
                         .transition(.opacity)
                     }
                 }
                 .allowsHitTesting(false)
                 // 빛만 은은하게 켜고 끈다. 같은 순간의 화면 이동 등에는 애니메이션이 섞이지 않는다.
-                .animation(Theme.glowAnimation, value: isHighlighted)
+                .animation(Theme.glowAnimation, value: glow)
             }
             .shadow(color: isQuiet ? .clear : .black.opacity(isDimmed ? 0.05 : 0.18), radius: isQuiet ? 0 : isFocused ? 10 : 5, y: isQuiet ? 0 : 2)
             .contentShape(shape)
     }
+}
+
+/// 호버 빛. 호버한 노드 자신과 트리 선 이웃은 실선, 참조선으로만 이어진 이웃은 점선이다.
+enum NodeGlow: Equatable {
+    case none, solid, dashed
 }
 
 /// 노드 본문(질문 · 답변 · 상태). 화면 배율 · 흐림 · 빛과 무관한 값만 받아, 그 값이 같으면 다시 계산하지 않는다.

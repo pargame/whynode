@@ -132,8 +132,8 @@ enum SnapshotRenderer {
         styledMap.setColors(map.rootId, fill: "blue", text: "#B00020", now: now)
         let styled = styledMap.root
 
-        func bubble(_ node: Node, focused: Bool, highlighted: Bool = false) -> some View {
-            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, isHighlighted: highlighted, onRetry: {})
+        func bubble(_ node: Node, focused: Bool, glow: NodeGlow = .none) -> some View {
+            NodeBubble(node: node, isFocused: focused, isDimmed: false, isSuggesting: false, textScale: textScale, glow: glow, onRetry: {})
         }
         // 위쪽을 맞춰 나란히 두고, 질문 중심선(위에서 70pt)을 그어 펼쳐도 질문이 제자리인지 본다.
         let content = HStack(alignment: .top, spacing: 28) {
@@ -143,8 +143,9 @@ enum SnapshotRenderer {
             bubble(map[failed]!, focused: false)
             bubble(map[failed]!, focused: true)
             bubble(MindMap.new(now: now).root, focused: false)
-            // 호버 빛
-            bubble(map.root, focused: false, highlighted: true)
+            // 호버 빛: 실선(자신 · 트리 이웃), 점선(참조선 이웃)
+            bubble(map.root, focused: false, glow: .solid)
+            bubble(map.root, focused: false, glow: .dashed)
             // 꾸민 노드: 크기 1.4, 노드 색 파랑, 글자 색 사용자 지정
             bubble(styled, focused: false)
         }

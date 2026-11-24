@@ -179,7 +179,7 @@ struct MapScreen: View {
                 isQuiet: canvas.isMoving,
                 textScale: textScale,
                 zoom: canvas.effectiveScale,
-                isHighlighted: isHighlighted(node.id),
+                glow: glow(of: node.id),
                 onRetry: { retry(node.id) }
             )
             .equatable()
@@ -361,11 +361,12 @@ struct MapScreen: View {
         }
     }
 
-    /// 호버한 노드 자신과, 트리 선 · 참조선으로 바로 이어진 노드
-    private func isHighlighted(_ id: WID) -> Bool {
-        guard let hoveredId = canvas.hoveredId, let hovered = map[hoveredId], let node = map[id] else { return false }
-        return id == hoveredId || node.parentId == hoveredId || hovered.parentId == id
-            || node.refs.contains { $0.nodeId == hoveredId } || hovered.refs.contains { $0.nodeId == id }
+    /// 호버한 노드 자신과 트리 선으로 이어진 노드는 실선 빛, 참조선으로만 이어진 노드는 점선 빛
+    private func glow(of id: WID) -> NodeGlow {
+        guard let hoveredId = canvas.hoveredId, let hovered = map[hoveredId], let node = map[id] else { return .none }
+        if id == hoveredId || node.parentId == hoveredId || hovered.parentId == id { return .solid }
+        if node.refs.contains(where: { $0.nodeId == hoveredId }) || hovered.refs.contains(where: { $0.nodeId == id }) { return .dashed }
+        return .none
     }
 
     /// 빛은 갑자기 켜지지 않고 0.5초 안에 은은하게 밝아지고 옅어진다.
