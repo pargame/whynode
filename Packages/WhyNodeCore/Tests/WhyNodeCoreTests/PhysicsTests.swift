@@ -79,6 +79,34 @@ struct PhysicsTests {
         #expect(meanDistance(far) > meanDistance(near) + 40)
     }
 
+    @Test func 음수_장력은_이어진_노드를_밀어내고_스스로_멈춘다() throws {
+        let map = crowdedMap(children: 3, grandchildren: 0)
+        func meanDistance(_ tension: Double) -> Double {
+            var settings = PhysicsSettings.default
+            settings.tension = tension
+            var sim = ForceSimulation(map: map, settings: settings)
+            var ticks = 0
+            while sim.tick() { ticks += 1 }
+            #expect(sim.isSettled && ticks < ForceSimulation.maxTicks)
+            let root = sim.position(of: map.rootId)!
+            let children = map.childIDs(of: map.rootId).compactMap { sim.position(of: $0) }
+            return children.map { distance($0, root) }.reduce(0, +) / Double(children.count)
+        }
+        let none = meanDistance(0)
+        let pushed = meanDistance(PhysicsSettings.tensionRange.lowerBound)
+        #expect(pushed.isFinite && pushed > none)
+    }
+
+    @Test func 프리셋은_범위_안이고_스스로_멈춘다() {
+        for preset in PhysicsSettings.Preset.allCases {
+            #expect(preset.settings.clamped == preset.settings)
+            var sim = ForceSimulation(map: crowdedMap(), settings: preset.settings)
+            var ticks = 0
+            while sim.tick() { ticks += 1 }
+            #expect(sim.isSettled && ticks < ForceSimulation.maxTicks, "\(preset)")
+        }
+    }
+
     @Test func 잡은_노드는_손가락_위치에_있고_놓으면_다시_움직인다() throws {
         let map = crowdedMap(children: 3, grandchildren: 0)
         let child = map.childIDs(of: map.rootId)[0]

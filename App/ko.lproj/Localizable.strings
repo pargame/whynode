@@ -32,6 +32,12 @@
 "Gravity" = "중심력";
 "The root stays fixed. Link distance is the line length between the edges of two circles." = "루트는 고정됩니다. 링크 거리는 두 원 가장자리 사이의 선 길이입니다.";
 "Reset to Defaults" = "기본값으로 설정";
+"Compact" = "촘촘하게";
+"Spread" = "넓게";
+"Push Apart" = "밀어내기";
+"Pull nodes close to fit more on screen" = "노드를 모아 한 화면에 많이 보이게 합니다";
+"Spread nodes out for easier reading" = "노드를 넓게 펼쳐 읽기 편하게 합니다";
+"Negative tension pushes linked nodes apart" = "음수 장력으로 이어진 노드끼리 밀어냅니다";
 
 /* 메뉴 · 도구 막대 */
 "Larger Text" = "글자 크게";

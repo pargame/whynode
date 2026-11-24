@@ -12,11 +12,32 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
     public var gravity: Double
 
     /// 주인이 실제로 맞춰 본 값. 범위는 0~기본값×6으로 넓힌다.
-    /// 장력만 6까지로 둔다. 실측에서 6까지는 멈추고, 6.5부터 끝까지 떨리며, 8부터 발산했다.
+    /// 장력만 -6~6으로 둔다. 실측에서 6까지는 멈추고, 6.5부터 끝까지 떨리며, 8부터 발산했다.
+    /// 음수 장력은 이어진 노드끼리 밀어내는 힘이라 -6까지 모두 멈췄다.
     public static let `default` = PhysicsSettings(repel: 1, tension: 2, linkDistance: 50, gravity: 1)
 
+    /// 조절값 패널의 프리셋. 군집 맵(자식 6 · 손자 4)에서 모두 스스로 멈추는 것을 실측했다(2026-11-24).
+    public enum Preset: String, CaseIterable, Identifiable, Sendable {
+        /// 한 화면에 많이 보이게 모은다.
+        case compact
+        /// 글을 읽기 좋게 넓게 펼친다.
+        case spread
+        /// 음수 장력으로 이어진 노드끼리 밀어낸다.
+        case push
+
+        public var id: String { rawValue }
+
+        public var settings: PhysicsSettings {
+            switch self {
+            case .compact: PhysicsSettings(repel: 0.6, tension: 2.5, linkDistance: 20, gravity: 2)
+            case .spread: PhysicsSettings(repel: 3, tension: 1.5, linkDistance: 150, gravity: 0.5)
+            case .push: PhysicsSettings(repel: 1, tension: -2, linkDistance: 50, gravity: 1)
+            }
+        }
+    }
+
     public static let repelRange: ClosedRange<Double> = 0...6
-    public static let tensionRange: ClosedRange<Double> = 0...6
+    public static let tensionRange: ClosedRange<Double> = -6...6
     public static let linkDistanceRange: ClosedRange<Double> = 0...300
     public static let gravityRange: ClosedRange<Double> = 0...6
 
@@ -51,6 +72,8 @@ public struct ForceSimulation: Sendable {
     /// 가장 빠른 노드의 한 틱 이동량이 이 값보다 작으면 안정된 것으로 본다.
     static let restSpeed = 0.05
     static let maxTicks = 600
+    /// 반발력 1이 갖는 실제 힘의 크기. 음수 장력도 같은 단위를 쓴다.
+    static let repelScale = 500.0
 
     public var settings: PhysicsSettings
     public private(set) var alpha = 1.0
@@ -191,7 +214,20 @@ public struct ForceSimulation: Sendable {
 
     private mutating func applyLinks() {
         let strength = settings.tension
-        guard strength > 0 else { return }
+        guard strength != 0 else { return }
+        // 음수는 선으로 이어진 노드끼리 반발력처럼 밀어낸다. 멀어질수록 약해져 멈출 자리가 생긴다.
+        if strength < 0 {
+            let push = -strength * Self.repelScale
+            for link in links {
+                var d = position[link.target] - position[link.source]
+                if d == .zero { d = jitter(link.target) }
+                let l2 = max((d * d).sum(), 400)
+                let delta = d * (push * alpha / l2)
+                velocity[link.target] += delta
+                velocity[link.source] -= delta
+            }
+            return
+        }
         for link in links {
             var d = (position[link.target] + velocity[link.target]) - (position[link.source] + velocity[link.source])
             if d == .zero { d = jitter(link.target) }
@@ -208,7 +244,7 @@ public struct ForceSimulation: Sendable {
 
     /// 모든 쌍을 계산한다. 정리는 버튼으로 몇 초만 도는 작업이라 수백 개까지는 충분하다.
     private mutating func applyRepel(_ n: Int) {
-        let strength = settings.repel * 500
+        let strength = settings.repel * Self.repelScale
         guard strength > 0, n > 1 else { return }
         for i in 0..<(n - 1) {
             for j in (i + 1)..<n {
