@@ -1,42 +1,27 @@
 import Foundation
 
 /// 시뮬레이션의 조절값 (SPEC 2.6). 화면의 슬라이더 · 입력칸과 1:1로 대응한다.
+/// 두 값 모두 0~10 눈금이고 단위에 의미는 없다. 실제 힘은 `ForceSimulation`이 눈금마다 다른 배율로 환산한다.
 public struct PhysicsSettings: Codable, Equatable, Sendable {
     /// 노드끼리 밀어내는 힘
     public var repel: Double
-    /// 선으로 이어진 노드가 링크 거리로 돌아가려는 힘
+    /// 선으로 이어진 노드를 원 가장자리가 맞닿는 거리로 당기는 힘
     public var tension: Double
-    /// 선의 목표 길이. 노드 중심이 아니라 두 원의 가장자리 사이, 즉 화면에 보이는 선 길이다.
-    public var linkDistance: Double
-    /// 루트 쪽으로 모으는 힘
-    public var gravity: Double
 
-    /// 주인이 기본값을 다시 잴 수 있게 범위를 넉넉하게 잡는다(2026-11-24).
-    /// 장력은 실측상 6까지 멈추고 6.5부터 떨리며 8부터 발산하지만, 주인 요청으로 범위는 막지 않는다.
-    /// 발산해도 좌표가 무한대가 되지 않게 한 틱 이동량을 `maxSpeed`로 묶는다.
-    public static let `default` = PhysicsSettings(repel: 1, tension: 2, linkDistance: 50, gravity: 1)
+    /// 주인이 실제로 맞춰 본 값(옛 눈금 반발력 5 · 장력 0.5 · 링크 거리 0 · 중심력 0, 2026-11-24)을 눈금 가운데 5로 맞췄다.
+    public static let `default` = PhysicsSettings(repel: 5, tension: 5)
 
-    public static let repelRange: ClosedRange<Double> = 0...20
-    public static let tensionRange: ClosedRange<Double> = -20...20
-    public static let linkDistanceRange: ClosedRange<Double> = 0...600
-    public static let gravityRange: ClosedRange<Double> = 0...20
+    public static let range: ClosedRange<Double> = 0...10
 
-    public init(repel: Double, tension: Double, linkDistance: Double, gravity: Double) {
+    public init(repel: Double, tension: Double) {
         self.repel = repel
         self.tension = tension
-        self.linkDistance = linkDistance
-        self.gravity = gravity
     }
 
     /// 범위를 벗어난 값(직접 입력 · 이전 저장값)을 허용 범위로 맞춘다.
     public var clamped: PhysicsSettings {
-        func clamp(_ v: Double, _ r: ClosedRange<Double>) -> Double { v.isFinite ? min(max(v, r.lowerBound), r.upperBound) : r.lowerBound }
-        return PhysicsSettings(
-            repel: clamp(repel, Self.repelRange),
-            tension: clamp(tension, Self.tensionRange),
-            linkDistance: clamp(linkDistance, Self.linkDistanceRange),
-            gravity: clamp(gravity, Self.gravityRange)
-        )
+        func clamp(_ v: Double) -> Double { v.isFinite ? min(max(v, Self.range.lowerBound), Self.range.upperBound) : Self.range.lowerBound }
+        return PhysicsSettings(repel: clamp(repel), tension: clamp(tension))
     }
 }
 
@@ -44,7 +29,7 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
 /// d3-force와 같은 방식으로 온도(alpha)가 식어 가며, 루트와 사용자가 잡고 있는 노드만 고정한다.
 public struct ForceSimulation: Sendable {
     public static let nodeRadius = 70.0
-    /// 원끼리 최소 이만큼(양쪽 합 2배) 떨어진다. 링크 거리 0에 가까운 값도 차이가 나도록 작게 둔다.
+    /// 원끼리 최소 이만큼(양쪽 합 2배) 떨어진다. 장력이 원을 맞닿게 당겨도 선이 조금 보이도록 작게 둔다.
     static let collisionPadding = 4.0
     static let alphaMin = 0.001
     static let alphaDecay = 1 - pow(alphaMin, 1.0 / 300)
@@ -52,8 +37,9 @@ public struct ForceSimulation: Sendable {
     /// 가장 빠른 노드의 한 틱 이동량이 이 값보다 작으면 안정된 것으로 본다.
     static let restSpeed = 0.05
     static let maxTicks = 600
-    /// 반발력 1이 갖는 실제 힘의 크기. 음수 장력도 같은 단위를 쓴다.
+    /// 눈금 1이 갖는 실제 힘의 크기. 반발력 눈금은 옛 눈금과 같고, 장력 눈금 5가 옛 장력 0.5다.
     static let repelScale = 500.0
+    static let tensionScale = 0.1
     /// 한 틱 최대 이동량. 정상 범위에서는 닿지 않고, 발산할 때 좌표가 무한대가 되는 것만 막는다.
     static let maxSpeed = 100.0
 
@@ -175,7 +161,6 @@ public struct ForceSimulation: Sendable {
 
         applyLinks()
         applyRepel(n)
-        applyGravity(n)
         applyCollision(n)
 
         var fastest = 0.0
@@ -201,26 +186,14 @@ public struct ForceSimulation: Sendable {
     }
 
     private mutating func applyLinks() {
-        let strength = settings.tension
-        guard strength != 0 else { return }
-        // 음수는 선으로 이어진 노드끼리 반발력처럼 밀어낸다. 멀어질수록 약해져 멈출 자리가 생긴다.
-        if strength < 0 {
-            let push = -strength * Self.repelScale
-            for link in links {
-                var d = position[link.target] - position[link.source]
-                if d == .zero { d = jitter(link.target) }
-                let l2 = max((d * d).sum(), 400)
-                let delta = d * (push * alpha / l2)
-                velocity[link.target] += delta
-                velocity[link.source] -= delta
-            }
-            return
-        }
+        let strength = settings.tension * Self.tensionScale
+        guard strength > 0 else { return }
         for link in links {
             var d = (position[link.target] + velocity[link.target]) - (position[link.source] + velocity[link.source])
             if d == .zero { d = jitter(link.target) }
             let length = (d * d).sum().squareRoot()
-            let target = settings.linkDistance + radius[link.source] + radius[link.target]
+            // 목표는 두 원의 가장자리가 맞닿는 거리. 실제 간격은 반발력과의 균형으로 정해진다.
+            let target = radius[link.source] + radius[link.target]
             let k = (length - target) / length * alpha * strength
             let delta = d * k
             // 한쪽 끝이 고정이면 움직이는 쪽이 이동을 전부 맡는다. 고정된 쪽 몫은 어차피 버려진다.
@@ -243,15 +216,6 @@ public struct ForceSimulation: Sendable {
                 velocity[i] -= push
                 velocity[j] += push
             }
-        }
-    }
-
-    private mutating func applyGravity(_ n: Int) {
-        let strength = settings.gravity * 0.05
-        guard strength > 0, let r = index[rootId] else { return }
-        let center = position[r]
-        for i in 0..<n where i != r {
-            velocity[i] += (center - position[i]) * (strength * alpha)
         }
     }
 

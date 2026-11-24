@@ -27,7 +27,8 @@ enum AppLanguage: String, CaseIterable, Identifiable {
 @Observable
 final class SettingsStore {
     private static let settingsKey = "ai.settings"
-    private static let physicsKey = "physics.settings"
+    /// 눈금이 바뀐 뒤의 저장 키. 옛 키(`physics.settings`)의 값은 뜻이 달라 읽지 않는다.
+    private static let physicsKey = "physics.settings.v2"
     private static let textScaleKey = "text.scale"
     private static let projectFolderKey = "project.folder"
     private static let languageKey = "app.language"

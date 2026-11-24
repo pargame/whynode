@@ -62,11 +62,9 @@ struct PhysicsControl: View {
 
     private var panel: some View {
         VStack(alignment: .leading, spacing: 12) {
-            row("Repulsion", value: $settings.repel, range: PhysicsSettings.repelRange, step: 0.1)
-            row("Tension", value: $settings.tension, range: PhysicsSettings.tensionRange, step: 0.1)
-            row("Link Distance", value: $settings.linkDistance, range: PhysicsSettings.linkDistanceRange, step: 2)
-            row("Gravity", value: $settings.gravity, range: PhysicsSettings.gravityRange, step: 0.05)
-            Text("The root stays fixed. Link distance is the line length between the edges of two circles.")
+            row("Repulsion", value: $settings.repel, range: PhysicsSettings.range, step: 0.1)
+            row("Tension", value: $settings.tension, range: PhysicsSettings.range, step: 0.1)
+            Text("The root stays fixed. Repulsion spreads nodes apart, and tension pulls linked nodes together.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

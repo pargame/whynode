@@ -63,27 +63,9 @@ struct PhysicsTests {
         #expect(closest > ForceSimulation.nodeRadius * 2)
     }
 
-    @Test func 링크_거리를_늘리면_자식이_멀어진다() throws {
+    @Test func 반발력을_키우거나_장력을_줄이면_자식이_멀어진다() throws {
         let map = crowdedMap(children: 3, grandchildren: 0)
         func meanDistance(_ settings: PhysicsSettings) -> Double {
-            var sim = ForceSimulation(map: map, settings: settings)
-            while sim.tick() {}
-            let root = sim.position(of: map.rootId)!
-            let children = map.childIDs(of: map.rootId).compactMap { sim.position(of: $0) }
-            return children.map { distance($0, root) }.reduce(0, +) / Double(children.count)
-        }
-        var near = PhysicsSettings.default
-        near.linkDistance = 0
-        var far = PhysicsSettings.default
-        far.linkDistance = 80
-        #expect(meanDistance(far) > meanDistance(near) + 40)
-    }
-
-    @Test func 음수_장력은_이어진_노드를_밀어내고_스스로_멈춘다() throws {
-        let map = crowdedMap(children: 3, grandchildren: 0)
-        func meanDistance(_ tension: Double) -> Double {
-            var settings = PhysicsSettings.default
-            settings.tension = tension
             var sim = ForceSimulation(map: map, settings: settings)
             var ticks = 0
             while sim.tick() { ticks += 1 }
@@ -92,22 +74,19 @@ struct PhysicsTests {
             let children = map.childIDs(of: map.rootId).compactMap { sim.position(of: $0) }
             return children.map { distance($0, root) }.reduce(0, +) / Double(children.count)
         }
-        let none = meanDistance(0)
-        let pushed = meanDistance(PhysicsSettings.tensionRange.lowerBound)
-        #expect(pushed.isFinite && pushed > none)
+        let base = meanDistance(.default)
+        #expect(meanDistance(PhysicsSettings(repel: 10, tension: 5)) > base + 20)
+        #expect(meanDistance(PhysicsSettings(repel: 5, tension: 1)) > base + 20)
     }
 
-    @Test func 범위_끝값에서도_좌표는_유한하다() {
-        let r = PhysicsSettings.self
-        let extremes = [
-            PhysicsSettings(repel: r.repelRange.upperBound, tension: r.tensionRange.upperBound, linkDistance: r.linkDistanceRange.upperBound, gravity: r.gravityRange.upperBound),
-            PhysicsSettings(repel: 0, tension: r.tensionRange.lowerBound, linkDistance: 0, gravity: r.gravityRange.upperBound),
-            PhysicsSettings(repel: r.repelRange.upperBound, tension: r.tensionRange.upperBound, linkDistance: 0, gravity: 0),
-        ]
-        for settings in extremes {
-            var sim = ForceSimulation(map: crowdedMap(), settings: settings)
-            while sim.tick() {}
-            #expect(sim.positions.values.allSatisfy { $0.x.isFinite && $0.y.isFinite }, "\(settings)")
+    @Test func 범위_끝값에서도_스스로_멈춘다() {
+        let r = PhysicsSettings.range
+        for (repel, tension) in [(r.upperBound, r.upperBound), (r.lowerBound, r.upperBound), (r.upperBound, r.lowerBound), (r.lowerBound, r.lowerBound)] {
+            var sim = ForceSimulation(map: crowdedMap(), settings: PhysicsSettings(repel: repel, tension: tension))
+            var ticks = 0
+            while sim.tick() { ticks += 1 }
+            #expect(sim.isSettled && ticks < ForceSimulation.maxTicks, "\(repel) \(tension)")
+            #expect(sim.positions.values.allSatisfy { $0.x.isFinite && $0.y.isFinite })
         }
     }
 
@@ -141,8 +120,9 @@ struct PhysicsTests {
     }
 
     @Test func 범위를_벗어난_조절값은_맞춘다() {
-        let wild = PhysicsSettings(repel: -5, tension: 3, linkDistance: .nan, gravity: 0.5).clamped
-        #expect(wild == PhysicsSettings(repel: 0, tension: 3, linkDistance: 0, gravity: 0.5))
+        let wild = PhysicsSettings(repel: -5, tension: .nan).clamped
+        #expect(wild == PhysicsSettings(repel: 0, tension: 0))
+        #expect(PhysicsSettings(repel: 30, tension: 3).clamped == PhysicsSettings(repel: 10, tension: 3))
     }
 
     @Test func 부분_계산은_범위_밖_노드를_고정하고_겹친_새_노드를_떼어_놓는다() throws {
