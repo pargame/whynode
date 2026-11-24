@@ -106,6 +106,8 @@ struct MapScreen: View {
                 .environment(settings)
         }
         .onAppear {
+            // 원점은 루트다. 열 때 루트를 화면 가운데에 둔다.
+            canvas.offset = CGSize(width: -map.root.position.x * canvas.scale, height: -map.root.position.y * canvas.scale)
             ai.center = settings.requests
             document.markEdited = { markDocumentEdited() }
             updateProvider()
@@ -764,8 +766,9 @@ struct MapScreen: View {
                 .help("Zoom out the canvas")
             Button { animateCamera(scale: canvas.scale * 1.25) } label: { Label("Zoom In", systemImage: "plus.magnifyingglass") }
                 .help("Zoom in the canvas")
-            Button { animateCamera(scale: 1, offset: .zero) } label: { Label("Center", systemImage: "scope") }
-                .help("Back to the center at actual size")
+            // 원점은 루트다. 루트를 옮겼으면 옮긴 자리로 간다.
+            Button { animateCamera(scale: 1, offset: CGSize(width: -map.root.position.x, height: -map.root.position.y)) } label: { Label("Center", systemImage: "scope") }
+                .help("Center on the root at actual size")
             Button { ai.requestLinks(in: document, undoManager: undoManager) } label: {
                 if ai.findingLinks {
                     ProgressView().controlSize(.small)

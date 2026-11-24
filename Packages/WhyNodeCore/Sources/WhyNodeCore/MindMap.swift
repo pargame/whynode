@@ -306,9 +306,10 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
-    /// 시뮬레이션 결과 반영 (SPEC 2.6). 루트만 제자리에 두고 나머지는 고정 여부와 상관없이 옮긴다.
+    /// 시뮬레이션 결과 반영 (SPEC 2.6). 고정 여부와 상관없이 모두 옮긴다.
+    /// 루트는 시뮬레이션 동안 고정이라 그대로이고, 사용자가 시뮬레이션 중에 루트를 옮겼으면 그 자리가 새 기준이 된다.
     public mutating func arrange(_ positions: [WID: (x: Double, y: Double)]) {
-        for (id, point) in positions where id != rootId {
+        for (id, point) in positions {
             // 저장 형식(JSON)은 무한대 · NaN을 쓸 수 없다.
             guard let i = indexById[id], point.x.isFinite, point.y.isFinite else { continue }
             file.nodes[i].position.x = point.x

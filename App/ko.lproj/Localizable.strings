@@ -37,7 +37,7 @@
 "Reset Node Text Size" = "노드 글자 크기 원래대로";
 "Zoom Out" = "축소";
 "Zoom In" = "확대";
-"Center" = "가운데로";
+"Center" = "원점으로";
 
 /* 노드 */
 "Collapsed" = "접힘";
@@ -168,7 +168,7 @@
 /* 도구 막대 툴팁 */
 "Zoom out the canvas" = "캔버스 축소";
 "Zoom in the canvas" = "캔버스 확대";
-"Back to the center at actual size" = "원래 크기로 가운데에 맞추기";
+"Center on the root at actual size" = "원래 크기로 루트를 가운데에 맞추기";
 "Smaller text for all nodes (⌘-)" = "모든 노드 글자 작게 (⌘-)";
 "Larger text for all nodes (⌘=)" = "모든 노드 글자 크게 (⌘=)";
 "Default model" = "기본 모델";

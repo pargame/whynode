@@ -51,6 +51,17 @@ struct PhysicsTests {
         #expect(arranged.nodes.filter { $0.id != map.rootId }.allSatisfy { $0.position.x != 10 || $0.position.y != 10 })
     }
 
+    @Test func 시뮬레이션_중_옮긴_루트는_끝나도_그_자리에_남는다() throws {
+        let map = crowdedMap(children: 3, grandchildren: 0)
+        var sim = ForceSimulation(map: map, settings: .default)
+        sim.hold(map.rootId, at: (500, -300))
+        sim.release(map.rootId)
+        while sim.tick() {}
+        var arranged = map
+        arranged.arrange(sim.positions)
+        #expect(arranged.root.position.x == 500 && arranged.root.position.y == -300)
+    }
+
     @Test func 정리하면_노드가_겹치지_않는다() {
         let map = crowdedMap()
         var sim = ForceSimulation(map: map, settings: .default)
