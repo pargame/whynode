@@ -43,7 +43,7 @@ struct LauncherView: View {
                         .font(.caption)
                         .foregroundStyle(settings.isConfigured ? Color.secondary : Color.orange)
                         .lineLimit(2)
-                    Button("AI 설정…") { openSettings() }
+                    Button("설정…") { openSettings() }
                         .controlSize(.small)
                 }
             }
