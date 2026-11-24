@@ -42,6 +42,37 @@ public struct SuggestResponse: Codable, Equatable, Sendable {
     }
 }
 
+public struct LinksResponse: Codable, Equatable, Sendable {
+    public struct RawLink: Codable, Equatable, Sendable {
+        public var a: String
+        public var b: String
+        public var reason: String
+
+        public init(a: String, b: String, reason: String) {
+            self.a = a
+            self.b = b
+            self.reason = reason
+        }
+    }
+
+    public var links: [RawLink]
+
+    public init(links: [RawLink]) {
+        self.links = links
+    }
+}
+
+/// 검증을 통과한 참조선 하나. `from` 노드의 `refs`에 `ref`로 들어간다.
+public struct NewLink: Equatable, Sendable {
+    public var from: WID
+    public var ref: NodeRef
+
+    public init(from: WID, ref: NodeRef) {
+        self.from = from
+        self.ref = ref
+    }
+}
+
 public struct ValidatedAnswer: Equatable, Sendable {
     public var answer: String
     public var summary: String
@@ -117,6 +148,27 @@ public enum ResponseValidator {
             else { return nil }
             return NodeRef(nodeId: target, reason: ref.reason)
         }
+    }
+
+    /// `links` 응답 검증: 짧은 id를 노드 id로 바꾸고, 없는 노드 · 자기 자신 · 부모와 자식 · 이미 이어진 쌍 · 중복 쌍을 뺀다.
+    /// 참조선은 나중에 만든 노드에 단다(답변 때 새 노드가 기존 노드를 가리키는 것과 같은 방향).
+    public static func links(_ response: LinksResponse, ids: [String: WID], in map: MindMap) -> [NewLink] {
+        var linked = Set<Set<WID>>()
+        for node in map.nodes {
+            for ref in node.refs { linked.insert([node.id, ref.nodeId]) }
+        }
+        var result: [NewLink] = []
+        for raw in response.links {
+            guard let a = ids[raw.a.trimmingCharacters(in: .whitespaces)].flatMap({ map[$0] }),
+                  let b = ids[raw.b.trimmingCharacters(in: .whitespaces)].flatMap({ map[$0] }),
+                  a.id != b.id, a.parentId != b.id, b.parentId != a.id,
+                  linked.insert([a.id, b.id]).inserted
+            else { continue }
+            let (newer, older) = (a.createdAt, a.id) > (b.createdAt, b.id) ? (a, b) : (b, a)
+            let reason = AnswerFormat.plainText(raw.reason).trimmingCharacters(in: .whitespacesAndNewlines)
+            result.append(NewLink(from: newer.id, ref: NodeRef(nodeId: older.id, reason: reason)))
+        }
+        return result
     }
 
     static func existingQuestions(for id: WID, in map: MindMap) -> [String] {

@@ -83,6 +83,34 @@ struct LiveAnswerFormatTests {
         if kind == .google { print("USAGE", await client.lastUsage ?? [:]) }
     }
 }
+
+/// `WHYNODE_LIVE_LINKS=claude|agy WHYNODE_LIVE_LINKS_FILE=<.whynode>`일 때만 실제 참조선 다시 찾기 결과와 사용량을 출력한다.
+@Suite("참조선 실측")
+struct LiveLinksTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["WHYNODE_LIVE_LINKS"] != nil))
+    func 실제_참조선_찾기() async throws {
+        let env = ProcessInfo.processInfo.environment
+        let tool = env["WHYNODE_LIVE_LINKS"]!
+        let kind = try #require(ProviderKind.allCases.first { $0.cliTool == tool })
+        let executable = try #require(CLIProvider.locate(tool))
+        let client = ACPClient(executable: executable)
+        let provider: any AIProvider = kind == .google
+            ? ACPProvider(client: client, model: env["WHYNODE_LIVE_ACP_MODEL"] ?? "gemini-3.8-flash-low")
+            : CLIProvider(kind: kind, executable: executable, model: "haiku")
+        let file = try WhyNodeCodec.decode(Data(contentsOf: URL(fileURLWithPath: try #require(env["WHYNODE_LIVE_LINKS_FILE"]))))
+        let map = MindMap(file: file)
+        let request = try #require(ContextBuilder.links(in: map))
+        print("NODES", request.context.index.count, "EXISTING", request.context.existingLinks?.count ?? 0, "CHARS", Prompt.userMessage(for: request.context).count)
+        let collector = UsageCollector()
+        let response = try await UsageMeter.$collector.withValue(collector) { try await provider.links(request.context) }
+        let links = ResponseValidator.links(response, ids: request.ids, in: map)
+        print("RAW", response.links.count, "KEPT", links.count, "USAGE", collector.total)
+        for link in links {
+            print("-", map[link.from]?.question ?? "?", "↔", map[link.ref.nodeId]?.question ?? "?", ":", link.ref.reason)
+        }
+        if kind == .google { await client.shutdown() }
+    }
+}
 #endif
 
 @Suite("인라인 서식")

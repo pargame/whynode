@@ -50,6 +50,14 @@ struct AIStatusBar: View {
         .popover(isPresented: $showsDetail, arrowEdge: .top) { detail }
     }
 
+    private static func kindLabel(_ kind: AIRequestCenter.Kind) -> Text {
+        switch kind {
+        case .answer: Text("Answer")
+        case .suggest: Text("Suggestions")
+        case .links: Text("Find Links")
+        }
+    }
+
     private var detail: some View {
         VStack(alignment: .leading, spacing: 12) {
             section("This Project", usage: projectUsage)
@@ -58,7 +66,7 @@ struct AIStatusBar: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Last Request").font(.caption.weight(.semibold))
                     Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 3) {
-                        row("Type", last.kind == .answer ? Text("Answer") : Text("Suggestions"))
+                        row("Type", Self.kindLabel(last.kind))
                         row("Input", Text(verbatim: Self.tokens(last.usage.inputTokens)))
                         row("Output", Text(verbatim: Self.tokens(last.usage.outputTokens)))
                         row("Context", Text("\(last.contextCharacters) characters"))

@@ -11,6 +11,8 @@ extension Prompt {
             #"{"answer": "3–4 sentence answer", "summary": "one-line summary", "suggestions": ["3–4 follow-up questions"], "refs": [{"nodeId": "existing node id", "reason": "why it is related"}]}"#
         case .suggest:
             #"{"suggestions": ["3–4 follow-up questions"]}"#
+        case .links:
+            #"{"links": [{"a": "node id", "b": "node id", "reason": "why they are related"}]}"#
         }
         return """
         Context package:
@@ -22,7 +24,11 @@ extension Prompt {
     }
 
     public static func schema(for kind: ContextPackage.Kind) -> String {
-        kind == .answer ? answerSchema : suggestSchema
+        switch kind {
+        case .answer: answerSchema
+        case .suggest: suggestSchema
+        case .links: linksSchema
+        }
     }
 
     static func schemaObject(for kind: ContextPackage.Kind) -> [String: Any] {

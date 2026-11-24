@@ -267,6 +267,11 @@ public struct ACPProvider: AIProvider {
         return try Self.pick(SuggestResponse.self, from: text, usable: { !$0.suggestions.isEmpty })
     }
 
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        let text = try await client.ask(Self.message(for: context), model: model, timeout: timeout)
+        return try Self.pick(LinksResponse.self, from: text, usable: { _ in true })
+    }
+
     /// 시스템 프롬프트는 전용 에이전트 본문에 있으므로 맥락만 보낸다.
     static func message(for context: ContextPackage) -> String {
         Prompt.userMessage(for: context)

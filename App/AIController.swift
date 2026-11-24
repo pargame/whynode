@@ -11,6 +11,8 @@ final class AIController {
     }
     /// 추가 질문 다시 받기 중인 노드. 노드 상태(`status`)와 별개인 화면 전용 로딩 상태다.
     private(set) var suggesting: Set<WID> = []
+    /// 참조선 다시 찾기 중인지 (SPEC 5.3 `links`)
+    private(set) var findingLinks = false
     var notice: String?
     /// 앱 전체 요청 관리. 화면이 나타날 때 연결한다.
     @ObservationIgnored var center: AIRequestCenter?
@@ -119,10 +121,53 @@ final class AIController {
         center.register(.init(id: requestID, key: key, question: question, phase: .waiting, task: task))
     }
 
+    /// 맵 전체를 한 번 검토해 다른 가지 사이의 참조선을 더한다. 사용자가 누를 때만 실행하며, 결과는 실행 취소 1단계로 쌓는다.
+    func requestLinks(in document: WhyNodeDocument, undoManager: UndoManager?) {
+        guard let center, !findingLinks else { return }
+        guard let provider else {
+            notice = Self.notConfigured
+            return
+        }
+        guard let request = ContextBuilder.links(in: document.map) else {
+            notice = tr("Links need at least two answered nodes.")
+            return
+        }
+        let key = AIRequestCenter.Key(document: ObjectIdentifier(document), node: document.map.rootId, kind: .links)
+        guard center.request(for: key) == nil else { return }
+        let requestID = UUID()
+        findingLinks = true
+        let task = Task { [weak document] in
+            defer {
+                center.finish(requestID)
+                findingLinks = false
+            }
+            do {
+                try await center.acquire(requestID)
+                defer { center.release() }
+                let response = try await measure(.links, context: request.context, document: document) {
+                    try await self.retryingOnce { try await provider.links(request.context) }
+                }
+                guard let document else { return }
+                let links = ResponseValidator.links(response, ids: request.ids, in: document.map)
+                guard !links.isEmpty else {
+                    notice = tr("No new links found.")
+                    return
+                }
+                document.perform("Find Links", undoManager: undoManager) { $0.addLinks(links) }
+            } catch is CancellationError {
+            } catch {
+                guard !Task.isCancelled else { return }
+                notice = tr("Couldn't find links: \(error.localizedDescription)")
+            }
+        }
+        center.register(.init(id: requestID, key: key, question: document.map.root.question, phase: .waiting, task: task))
+    }
+
     /// 문서가 바뀔 때마다 부른다. 노드가 사라졌거나(실행 취소 · 삭제), 상태가 바뀌었거나, 질문이 바뀐 요청은 끊는다.
     func reconcile(_ document: WhyNodeDocument) {
         guard let center else { return }
-        for request in center.requests(in: ObjectIdentifier(document)) {
+        // 참조선 찾기는 결과를 반영할 때 지금 맵으로 다시 검증하므로 끊지 않는다.
+        for request in center.requests(in: ObjectIdentifier(document)) where request.key.kind != .links {
             let status: NodeStatus = request.key.kind == .answer ? .pending : .done
             if !Self.isCurrent(document.map[request.key.node], status: status, question: request.question) {
                 center.cancel(request.id)

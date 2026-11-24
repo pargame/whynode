@@ -215,6 +215,14 @@ public struct MindMap: Equatable, Sendable {
         }
     }
 
+    /// 참조선 다시 찾기 결과를 더한다. 이미 있는 참조선은 그대로 두고, 사라진 노드를 가리키면 건너뛴다.
+    public mutating func addLinks(_ links: [NewLink], now: Date = Date()) {
+        for link in links where self[link.ref.nodeId] != nil {
+            guard let node = self[link.from], !node.refs.contains(where: { $0.nodeId == link.ref.nodeId }) else { continue }
+            update(link.from, now: now) { $0.refs.append(link.ref) }
+        }
+    }
+
     // 편집 (SPEC 3.2)
 
     /// 노드와 그 아래 가지 전체를 삭제한다. 루트는 삭제할 수 없다.

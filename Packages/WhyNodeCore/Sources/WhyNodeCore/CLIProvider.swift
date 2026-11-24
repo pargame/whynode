@@ -41,6 +41,11 @@ public struct CLIProvider: AIProvider {
         return try Self.extract(SuggestResponse.self, from: output, usable: { !$0.suggestions.isEmpty })
     }
 
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        let output = try await run(context)
+        return try Self.extract(LinksResponse.self, from: output, usable: { _ in true })
+    }
+
     func arguments(for context: ContextPackage) throws -> [String] {
         let schema = Prompt.schema(for: context.kind)
         let message = Prompt.userMessage(for: context)

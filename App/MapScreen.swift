@@ -766,6 +766,15 @@ struct MapScreen: View {
                 .help("Zoom in the canvas")
             Button { animateCamera(scale: 1, offset: .zero) } label: { Label("Center", systemImage: "scope") }
                 .help("Back to the center at actual size")
+            Button { ai.requestLinks(in: document, undoManager: undoManager) } label: {
+                if ai.findingLinks {
+                    ProgressView().controlSize(.small)
+                } else {
+                    Label("Find Links", systemImage: "point.3.connected.trianglepath.dotted")
+                }
+            }
+            .disabled(ai.findingLinks)
+            .help("Ask AI to look over the whole map once and connect related nodes with dashed lines")
             Button { settings.stepTextScale(-1) } label: { Label("Smaller Text", systemImage: "textformat.size.smaller") }
                 .disabled(settings.textScale <= SettingsStore.textScaleRange.lowerBound)
                 .help("Smaller text for all nodes (⌘-)")

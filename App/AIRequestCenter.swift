@@ -8,7 +8,7 @@ import AppKit
 /// 창이 여러 개여도 한도를 함께 쓰고, 앱을 끌 때 남은 요청을 한꺼번에 끊는다.
 @Observable
 final class AIRequestCenter {
-    enum Kind { case answer, suggest }
+    enum Kind { case answer, suggest, links }
     enum Phase { case waiting, queued, running }
 
     struct Key: Hashable {

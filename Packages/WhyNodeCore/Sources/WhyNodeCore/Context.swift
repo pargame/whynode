@@ -3,13 +3,15 @@ import Foundation
 /// AI에 보내는 맥락 패키지 (SPEC 6.1). 대화 기록 대신 매 요청마다 트리에서 다시 만든다.
 public struct ContextPackage: Codable, Equatable, Sendable {
     public enum Kind: String, Codable, Sendable {
-        case answer, suggest
+        case answer, suggest, links
     }
 
     public struct Entry: Codable, Equatable, Sendable {
         public var id: String
         public var question: String
         public var summary: String?
+        /// `links` 요청에서만 채운다. 부모 · 자식 쌍을 제안하지 않게 한다.
+        public var parent: String?
     }
 
     public struct Brief: Codable, Equatable, Sendable {
@@ -27,6 +29,14 @@ public struct ContextPackage: Codable, Equatable, Sendable {
     public var children: [Brief]?
     public var index: [Entry]
     public var exclude: [String]?
+    /// `links` 요청에서만 채운다. 이미 이어진 노드 쌍(짧은 id).
+    public var existingLinks: [[String]]?
+}
+
+/// `links` 요청의 맥락과 짧은 id → 노드 id 대응표. UUID 대신 번호를 보내 토큰을 줄인다.
+public struct LinksRequest: Sendable {
+    public var context: ContextPackage
+    public var ids: [String: WID]
 }
 
 public enum ContextBuilder {
@@ -48,7 +58,8 @@ public enum ContextBuilder {
             siblings: map.siblings(of: id).map(brief),
             children: nil,
             index: index(for: id, in: map, budget: indexBudget),
-            exclude: nil
+            exclude: nil,
+            existingLinks: nil
         )
     }
 
@@ -66,9 +77,62 @@ public enum ContextBuilder {
             siblings: nil,
             children: map.children(of: id).map(brief),
             index: index(for: id, in: map, budget: indexBudget),
-            exclude: Array(Set(previous + exclude)).sorted()
+            exclude: Array(Set(previous + exclude)).sorted(),
+            existingLinks: nil
         )
     }
+
+    /// 참조선 다시 찾기의 `links` 요청 (SPEC 5.3). 맵 전체의 질문 · 요약을 만든 순서대로 담고,
+    /// 예산을 넘으면 뒤쪽 노드는 질문만 남기거나 생략한다. 답변이 있는 노드가 2개 미만이면 nil.
+    public static func links(in map: MindMap, budget: Int = defaultLinksBudget) -> LinksRequest? {
+        let nodes = map.nodes
+            .filter { $0.status == .done && !$0.question.isEmpty }
+            .sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
+        guard nodes.count >= 2 else { return nil }
+        var short: [WID: String] = [:]
+        var ids: [String: WID] = [:]
+        for (i, node) in nodes.enumerated() {
+            let key = "n\(i + 1)"
+            short[node.id] = key
+            ids[key] = node.id
+        }
+        var index: [ContextPackage.Entry] = []
+        var used = 0
+        for node in nodes {
+            var item = ContextPackage.Entry(id: short[node.id]!, question: node.question, summary: summary(of: node), parent: node.parentId.flatMap { short[$0] })
+            var cost = item.question.count + (item.summary?.count ?? 0)
+            if used + cost > budget {
+                item.summary = nil
+                cost = item.question.count
+                if used + cost > budget { break }
+            }
+            used += cost
+            index.append(item)
+        }
+        var existing: [[String]] = []
+        for node in nodes {
+            for ref in node.refs {
+                if let a = short[node.id], let b = short[ref.nodeId] { existing.append([a, b]) }
+            }
+        }
+        let context = ContextPackage(
+            kind: .links,
+            topic: map.root.question,
+            path: [],
+            parentAnswer: nil,
+            question: map.root.question,
+            answer: nil,
+            siblings: nil,
+            children: nil,
+            index: index,
+            exclude: nil,
+            existingLinks: existing.isEmpty ? nil : existing
+        )
+        return LinksRequest(context: context, ids: ids)
+    }
+
+    /// `links` 요청의 글자 수 예산. 맵 전체를 보므로 `index`보다 넉넉하다.
+    public static let defaultLinksBudget = 24_000
 
     /// 요약이 없으면 답변의 첫 문장(최대 60자)을 대신 쓴다.
     public static func summary(of node: Node) -> String? {

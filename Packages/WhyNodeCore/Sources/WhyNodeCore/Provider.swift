@@ -19,6 +19,7 @@ public protocol AIProvider: Sendable {
 
     func answer(_ context: ContextPackage) async throws -> AnswerResponse
     func suggest(_ context: ContextPackage) async throws -> SuggestResponse
+    func links(_ context: ContextPackage) async throws -> LinksResponse
 }
 
 extension AIProvider {
@@ -63,5 +64,12 @@ public struct MockProvider: AIProvider {
             "\(core)과(와) 비슷한 예는 무엇이 있을까? (\(round))",
             "\(core)을(를) 실제로 어떻게 활용할까? (\(round))",
         ])
+    }
+
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        try await Task.sleep(for: delay)
+        let ids = context.index.map(\.id)
+        guard ids.count >= 3 else { return LinksResponse(links: []) }
+        return LinksResponse(links: [.init(a: ids[ids.count - 1], b: ids[1], reason: "가짜 연결")])
     }
 }

@@ -2,7 +2,7 @@ import Foundation
 
 /// 앱에 내장하는 시스템 프롬프트 (SPEC 6.2). 내용을 바꾸면 `version`을 올린다.
 public enum Prompt {
-    public static let version = "3"
+    public static let version = "4"
 
     /// 지시문은 영어로 쓰고, 답변 언어는 사용자의 주제 · 질문을 따르게 한다(규칙 0).
     /// 지시문을 한국어로 쓰면 영어로 물어도 한국어로 답하는 경향이 강했다.
@@ -27,11 +27,16 @@ public enum Prompt {
        - Even with a list or diagram, keep the total length at the level of a 3–4 sentence answer.
 
     If kind is suggest, write only suggestions, based on the answer text (the answer field of the context).
+    If kind is links, write only links: pairs of nodes in index whose content is directly related, such as one explaining, extending, contrasting with, or depending on the other. Use only ids from index. Never pair a node with its parent (the parent field), and skip pairs already in existingLinks. Return at most 10 of the clearest pairs, or an empty list if none are clear. Write each reason as one short line in the language of topic, referring to the nodes by their content, never by id.
     Respond only in the given JSON schema.
     """
 
     public static let answerSchema = """
     {"type":"object","additionalProperties":false,"required":["answer","summary","suggestions","refs"],"properties":{"answer":{"type":"string"},"summary":{"type":"string"},"suggestions":{"type":"array","items":{"type":"string"},"minItems":3,"maxItems":4},"refs":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["nodeId","reason"],"properties":{"nodeId":{"type":"string"},"reason":{"type":"string"}}}}}}
+    """
+
+    public static let linksSchema = """
+    {"type":"object","additionalProperties":false,"required":["links"],"properties":{"links":{"type":"array","maxItems":10,"items":{"type":"object","additionalProperties":false,"required":["a","b","reason"],"properties":{"a":{"type":"string"},"b":{"type":"string"},"reason":{"type":"string"}}}}}}
     """
 
     public static let suggestSchema = """

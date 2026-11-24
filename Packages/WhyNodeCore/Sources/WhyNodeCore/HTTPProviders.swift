@@ -61,6 +61,10 @@ public struct GeminiProvider: AIProvider {
         try await JSONExtract.decode(SuggestResponse.self, from: generate(context))
     }
 
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        try await JSONExtract.decode(LinksResponse.self, from: generate(context))
+    }
+
     private func generate(_ context: ContextPackage) async throws -> String {
         guard !model.isEmpty else { throw ProviderError.missingModel }
         let url = URL(string: "https://generativelanguage.googleapis.com/v1beta/models/\(model):generateContent")!
@@ -112,6 +116,10 @@ public struct AnthropicProvider: AIProvider {
 
     public func suggest(_ context: ContextPackage) async throws -> SuggestResponse {
         try await JSONExtract.decode(SuggestResponse.self, from: respond(context))
+    }
+
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        try await JSONExtract.decode(LinksResponse.self, from: respond(context))
     }
 
     /// 응답 형식은 도구 하나를 강제 호출하게 해 스키마로 받는다.
@@ -173,6 +181,10 @@ public struct OpenAIProvider: AIProvider {
 
     public func suggest(_ context: ContextPackage) async throws -> SuggestResponse {
         try await JSONExtract.decode(SuggestResponse.self, from: complete(context))
+    }
+
+    public func links(_ context: ContextPackage) async throws -> LinksResponse {
+        try await JSONExtract.decode(LinksResponse.self, from: complete(context))
     }
 
     /// JSON 모드로 받고 형식 검증은 앱이 한다 (SPEC 5.3: 구조화 출력 미지원 시 구현체가 검증 · 재시도).

@@ -456,3 +456,68 @@ struct ValidationTests {
         }
     }
 }
+
+@Suite("참조선 다시 찾기")
+struct LinksTests {
+    /// 루트 → A, B / A → A1. 모두 답변 완료.
+    private func sample() throws -> (MindMap, root: WID, a: WID, b: WID, a1: WID) {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("양자역학", now: t0)
+        answered(&map, map.rootId)
+        let a = try unwrap(map.addChild(of: map.rootId, suggestion: map.root.suggestions[0].id, now: t0.addingTimeInterval(2)))
+        answered(&map, a)
+        let b = try unwrap(map.addChild(of: map.rootId, suggestion: map.root.suggestions[1].id, now: t0.addingTimeInterval(3)))
+        answered(&map, b)
+        let a1 = try unwrap(map.addChild(of: a, suggestion: try unwrap(map[a]).suggestions[0].id, now: t0.addingTimeInterval(4)))
+        answered(&map, a1)
+        return (map, map.rootId, a, b, a1)
+    }
+
+    @Test func 맥락은_짧은_id와_부모와_기존_참조선을_담는다() throws {
+        var (map, root, a, b, a1) = try sample()
+        map.addLinks([NewLink(from: b, ref: NodeRef(nodeId: a, reason: "기존"))])
+        let request = try #require(ContextBuilder.links(in: map))
+        #expect(request.context.kind == .links)
+        #expect(request.context.index.map(\.id) == ["n1", "n2", "n3", "n4"])
+        #expect(request.ids["n1"] == root && request.ids["n4"] == a1)
+        #expect(request.context.index[3].parent == "n2")
+        #expect(request.context.index[0].parent == nil)
+        #expect(request.context.existingLinks == [["n3", "n2"]])
+        let message = Prompt.userMessage(for: request.context)
+        #expect(!message.contains(a.description))
+    }
+
+    @Test func 답변이_있는_노드가_2개_미만이면_요청하지_않는다() {
+        var map = MindMap.new(now: t0)
+        map.setRootQuestion("주제", now: t0)
+        answered(&map, map.rootId)
+        #expect(ContextBuilder.links(in: map) == nil)
+    }
+
+    @Test func 검증은_부모자식_자기자신_없는_id_중복_기존_쌍을_빼고_새_노드에_단다() throws {
+        var (map, _, a, b, a1) = try sample()
+        map.addLinks([NewLink(from: b, ref: NodeRef(nodeId: a, reason: "기존"))])
+        let request = try #require(ContextBuilder.links(in: map))
+        let response = LinksResponse(links: [
+            .init(a: "n2", b: "n4", reason: "부모 자식"),
+            .init(a: "n3", b: "n3", reason: "자기 자신"),
+            .init(a: "n9", b: "n3", reason: "없는 id"),
+            .init(a: "n2", b: "n3", reason: "기존 쌍"),
+            .init(a: "n3", b: "n4", reason: "**새** 연결"),
+            .init(a: "n4", b: "n3", reason: "뒤집힌 중복"),
+        ])
+        let links = ResponseValidator.links(response, ids: request.ids, in: map)
+        #expect(links == [NewLink(from: a1, ref: NodeRef(nodeId: b, reason: "새 연결"))])
+
+        let before = try unwrap(map[a1]).refs.count
+        map.addLinks(links)
+        map.addLinks(links)
+        #expect(try unwrap(map[a1]).refs.count == before + 1)
+    }
+
+    @Test func 응답은_links_키가_있어야_읽힌다() throws {
+        #expect(throws: (any Error).self) { try JSONExtract.decode(LinksResponse.self, from: "{}") }
+        let decoded = try JSONExtract.decode(LinksResponse.self, from: #"앞말 {"links": []}"#)
+        #expect(decoded.links.isEmpty)
+    }
+}
