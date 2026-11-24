@@ -15,6 +15,17 @@ WhyNode is a native macOS and iPadOS app for building interactive knowledge mind
 | `App` | Multiplatform SwiftUI document app (`DocumentGroup`) |
 | `project.yml` | XcodeGen specification (`WhyNode.xcodeproj` is generated from this file and excluded from Git) |
 
+## Prerequisites: AI Connection
+
+WhyNode connects to AI with either an API key or **My CLI**, which uses the subscription of an official CLI signed in on this Mac (macOS only). For My CLI, install the CLI, run it once in a new Terminal window to sign in, then press **Check Again** in Settings (⌘,).
+
+| Provider | CLI | Install | Sign in |
+| :--- | :--- | :--- | :--- |
+| Anthropic Claude | Claude Code (`claude`) | `curl -fsSL https://claude.ai/install.sh \| bash` (or `brew install --cask claude-code`) | Run `claude` |
+| Google Gemini | Antigravity CLI (`agy`) | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | Run `agy` |
+
+WhyNode looks for the CLI in `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/bin`, and the login shell's `PATH`. Codex CLI is not supported yet; use an OpenAI API key instead.
+
 ## AI Connections & Token Optimization
 
 For every request, WhyNode assembles only the tree context relevant to the target node (see `SPEC.md` §6.1). Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead.

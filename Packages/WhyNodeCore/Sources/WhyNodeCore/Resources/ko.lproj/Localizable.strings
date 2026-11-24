@@ -8,7 +8,7 @@
 "AI server error (%lld): %@" = "AI 서버 오류 (%1$lld): %2$@";
 "The AI sent an empty response." = "AI가 빈 응답을 보냈습니다.";
 "Couldn't read the AI response: %@" = "AI 응답을 해석하지 못했습니다: %@";
-"Couldn't find the %@ CLI. Check that it's installed and signed in." = "%@ CLI를 찾지 못했습니다. 설치와 로그인을 확인해 주세요.";
+"Couldn't find the %@ CLI. See Help > Connecting AI to install it." = "%@ CLI를 찾지 못했습니다. 도움말 > AI 연결에서 설치 방법을 확인해 주세요.";
 "CLI failed: %@" = "CLI 실행 실패: %@";
 "The AI took too long to respond." = "AI 응답 시간이 초과됐습니다.";
 "%@ isn't supported yet." = "%@은(는) 아직 지원하지 않습니다.";

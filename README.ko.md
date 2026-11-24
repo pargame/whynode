@@ -15,6 +15,17 @@
 | `App` | SwiftUI 기반 멀티플랫폼 문서 앱(`DocumentGroup`)입니다. |
 | `project.yml` | XcodeGen 프로젝트 정의 파일입니다. `WhyNode.xcodeproj`는 이 파일에서 생성되므로 Git 커밋에서 제외합니다. |
 
+## 사전 준비: AI 연결
+
+WhyNode는 API 키 또는 **내 CLI**로 AI에 연결합니다. 내 CLI는 이 Mac에 로그인된 공식 CLI의 구독을 그대로 사용합니다(macOS 전용). CLI를 설치하고 새 터미널 창에서 한 번 실행해 로그인한 뒤, 설정(⌘,)에서 **다시 확인**을 누르면 됩니다.
+
+| 회사 | CLI | 설치 | 로그인 |
+| :--- | :--- | :--- | :--- |
+| Anthropic Claude | Claude Code(`claude`) | `curl -fsSL https://claude.ai/install.sh \| bash` (또는 `brew install --cask claude-code`) | `claude` 실행 |
+| Google Gemini | Antigravity CLI(`agy`) | `curl -fsSL https://antigravity.google/cli/install.sh \| bash` | `agy` 실행 |
+
+앱은 `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bin`, `~/.npm-global/bin`, `~/bin`과 로그인 셸의 `PATH`에서 CLI를 찾습니다. Codex CLI는 아직 지원하지 않으므로 OpenAI는 API 키로 연결해 주세요.
+
 ## AI 연결 및 토큰 절감
 
 WhyNode는 요청마다 해당 노드에 필요한 맥락만 트리에서 골라 보냅니다(`SPEC.md` 6.1 참고). 이 맥락 자체는 매우 가볍기 때문에, CLI가 기본으로 붙이는 시스템 프롬프트나 도구 선언, 전역 규칙이 그대로 실리면 토큰 사용량이 불필요하게 커집니다. 아래 설정은 이러한 오버헤드를 제거하기 위한 구성입니다.

@@ -3,11 +3,11 @@ import WhyNodeCore
 
 /// 도움말 창의 섹션
 enum HelpSection: String, CaseIterable, Identifiable {
-    case start, branching, canvas, styling, ai, shortcuts
+    case start, connect, branching, canvas, styling, ai, shortcuts
     var id: String { rawValue }
 }
 
-/// 메뉴 막대 도움말 > WhyNode 도움말(⌘?). 짧은 섹션 여섯 개와 단축키 표.
+/// 메뉴 막대 도움말 > WhyNode 도움말(⌘?). 짧은 섹션 일곱 개와 단축키 표.
 struct HelpView: View {
     static let windowId = "help"
 
@@ -37,6 +37,8 @@ struct HelpContent: View {
         VStack(alignment: .leading, spacing: 22) {
             section(.start, "Getting Started", systemImage: "sparkles",
                     "Create a new project and type any topic or question in the first node. WhyNode writes a short answer and suggests follow-up questions below the card. New projects are saved to your projects folder right away and keep saving automatically.")
+            section(.connect, "Connecting AI", systemImage: "link",
+                    "Choose a provider and connection in Settings (⌘,), then pass the connection test. With My CLI, WhyNode uses the subscription of an official CLI signed in on this Mac. Paste its install command into Terminal, run it once in a new Terminal window to sign in, then press Check Again in Settings.\n\nClaude: `curl -fsSL https://claude.ai/install.sh | bash`, then run `claude`.\nGemini: `curl -fsSL https://antigravity.google/cli/install.sh | bash`, then run `agy`.\n\nWith API Key, paste a key from the provider's console instead. It's stored only in this device's Keychain.")
             section(.branching, "Branching Out", systemImage: "arrow.triangle.branch",
                     "Click a suggestion chip to grow a new node from it. If none fits, use Ask Your Own to type your own question, or 3 Other Questions for fresh ideas (up to 12 unused questions). Regenerate Answer at the bottom of a card asks for a new answer.")
             section(.canvas, "Canvas", systemImage: "hand.draw",
@@ -58,6 +60,7 @@ struct HelpContent: View {
             Text(body)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+                .textSelection(.enabled)
         }
         .id(id)
     }
@@ -102,6 +105,7 @@ struct HelpCommands: Commands {
             let _ = settings.language
             Button(tr("WhyNode Help")) { open(.start) }
                 .keyboardShortcut("?", modifiers: .command)
+            Button(tr("Connecting AI")) { open(.connect) }
             Button(tr("Keyboard Shortcuts")) { open(.shortcuts) }
             Divider()
             Button(tr("Open Projects Folder")) {

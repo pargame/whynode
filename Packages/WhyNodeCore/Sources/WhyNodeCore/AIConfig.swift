@@ -34,6 +34,15 @@ public enum ProviderKind: String, Codable, CaseIterable, Identifiable, Sendable 
     /// 이 앱이 CLI 호출 형식을 확인해 지원하는 CLI
     public var supportsCLI: Bool { self != .openai }
 
+    /// 터미널에 붙여 넣는 공식 설치 명령. 지원하지 않는 CLI는 nil.
+    public var cliInstallCommand: String? {
+        switch self {
+        case .google: "curl -fsSL https://antigravity.google/cli/install.sh | bash"
+        case .anthropic: "curl -fsSL https://claude.ai/install.sh | bash"
+        case .openai: nil
+        }
+    }
+
     /// API Key 연결의 기본 모델. 비어 있으면 모델 목록에서 고른다.
     public var defaultAPIModel: String {
         switch self {
@@ -91,7 +100,7 @@ public enum ProviderError: Error, LocalizedError, Equatable {
         case .http(let status, let message): L("AI server error (\(status)): \(message)")
         case .emptyResponse: L("The AI sent an empty response.")
         case .unreadableResponse(let detail): L("Couldn't read the AI response: \(detail)")
-        case .cliNotFound(let tool): L("Couldn't find the \(tool) CLI. Check that it's installed and signed in.")
+        case .cliNotFound(let tool): L("Couldn't find the \(tool) CLI. See Help > Connecting AI to install it.")
         case .cliFailed(let message): L("CLI failed: \(message)")
         case .timeout: L("The AI took too long to respond.")
         case .notSupported(let what): L("\(what) isn't supported yet.")
