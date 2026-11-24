@@ -59,7 +59,11 @@ enum SnapshotRenderer {
         var map = MindMap.new()
         map.setRootQuestion("레이트레이싱")
         map.setColors(map.rootId, fill: "green", text: nil)
-        let content = NodeStylePanel(node: map.root, canToggleBranch: true, canDelete: true, onTextScale: { _ in }, onSizeScale: { _ in }, onFill: { _ in }, onText: { _ in }, onToggleBranch: {}, onReset: {}, onDelete: {})
+        let content = HStack(alignment: .top, spacing: 24) {
+            NodeStylePanel(node: map.root, canToggleBranch: true, canDelete: true, onTextScale: { _ in }, onSizeScale: { _ in }, onFill: { _ in }, onText: { _ in }, onToggleBranch: {}, onReset: {}, onDelete: {})
+            // 사용자 지정 색을 눌렀을 때 펼쳐지는 격자
+            PaletteGrid(selected: PaletteGrid.colors[9]) { _ in }
+        }
             .padding(32)
             .background(Theme.canvas)
             .environment(\.colorScheme, scheme)
