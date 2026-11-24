@@ -134,7 +134,7 @@ struct PhysicsTests {
         let wild = PhysicsSettings(repel: -5, tension: .nan).clamped
         #expect(wild == PhysicsSettings(repel: 0, tension: 0))
         #expect(PhysicsSettings(repel: 30, tension: 3).clamped == PhysicsSettings(repel: 10, tension: 3))
-        #expect(PhysicsSettings(repel: 2.3, tension: 4.6).clamped == PhysicsSettings(repel: 2.3, tension: 5))
+        #expect(PhysicsSettings(repel: 2.3, tension: 4.6).clamped == PhysicsSettings(repel: 2, tension: 5))
     }
 
     @Test func 부분_계산은_범위_밖_노드를_고정하고_겹친_새_노드를_떼어_놓는다() throws {

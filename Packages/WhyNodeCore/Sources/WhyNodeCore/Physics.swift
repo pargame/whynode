@@ -21,8 +21,8 @@ public struct PhysicsSettings: Codable, Equatable, Sendable {
     /// 범위를 벗어난 값(직접 입력 · 이전 저장값)을 허용 범위로 맞춘다.
     public var clamped: PhysicsSettings {
         func clamp(_ v: Double) -> Double { v.isFinite ? min(max(v, Self.range.lowerBound), Self.range.upperBound) : Self.range.lowerBound }
-        // 장력은 1 단위로만 고른다.
-        return PhysicsSettings(repel: clamp(repel), tension: clamp(tension).rounded())
+        // 두 값 모두 1 단위로만 고른다.
+        return PhysicsSettings(repel: clamp(repel).rounded(), tension: clamp(tension).rounded())
     }
 }
 

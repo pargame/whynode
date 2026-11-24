@@ -84,12 +84,9 @@ private struct NodeBubbleBody: View, Equatable {
         lhs.node == rhs.node && lhs.isFocused == rhs.isFocused && lhs.isSuggesting == rhs.isSuggesting
     }
 
-    /// 펼친 카드 질문의 위 여백 기준. 기준 글자 크기로 최대 4줄(노드가 크면 더)까지의 높이다.
-    private var cardLineLimit: Int { max(1, Int((4 * size).rounded(.down))) }
-
-    /// 원 안 질문은 이 높이(기준 글자 4줄) 안에 들어가는 가장 큰 크기로 그린다.
+    /// 원 안 질문은 이 높이(기준 글자 4줄) 안에 들어가는 가장 큰 크기로 그린다. 펼쳐도 같은 크기를 쓴다.
     private var fitHeight: CGFloat { Self.lineHeight(scale: 1) * 4 * size }
-    /// 큰 것부터 차례로 맞춰 본다. 가장 작은 크기로도 넘치면 그 크기에서 줄 수를 자르고 생략(…)한다.
+    /// 큰 것부터 차례로 맞춰 본다. 가장 작은 크기로도 넘치면 원에서는 그 크기로 줄 수를 자르고 생략(…)한다.
     private static let fitScales: [CGFloat] = [1.8, 1.6, 1.4, 1.25, 1.1, 1.0, 0.9, 0.8]
 
     #if os(macOS)
@@ -115,17 +112,32 @@ private struct NodeBubbleBody: View, Equatable {
             .max() ?? 0
     }
 
-    /// 단어가 끊기지 않는 크기만 남긴다. 모두 끊기면 가장 작은 크기만 쓴다.
-    private var wordSafeScales: [CGFloat] {
-        let text = node.question.isEmpty ? String(localized: "Enter a topic") : node.question
-        let width = NodeBubble.titleWidth * size
-        let safe = Self.fitScales.filter { Self.longestWordWidth(text, scale: $0) <= width }
-        return safe.isEmpty ? [Self.fitScales.last!] : safe
+    private var displayText: String { node.question.isEmpty ? String(localized: "Enter a topic") : node.question }
+
+    /// 질문을 이 폭으로 줄바꿈했을 때의 높이
+    private static func textHeight(_ text: String, scale: CGFloat, width: CGFloat) -> CGFloat {
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
+        let attributes: [NSAttributedString.Key: Any] = [.font: platformFont(scale: scale), .paragraphStyle: paragraph]
+        let rect = (text as NSString).boundingRect(with: CGSize(width: width, height: .greatestFiniteMagnitude), options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: attributes, context: nil)
+        return ceil(rect.height)
     }
 
-    /// 원 안 질문과 펼친 카드 질문의 높이. 질문의 중심이 원의 중심에 오도록 위 여백을 정한다.
+    /// 글자 크기 배율: 단어가 끊기지 않고 원 안(`fitHeight`)에 다 들어가는 가장 큰 크기. 없으면 가장 작은 크기.
+    private var fittedScale: CGFloat {
+        let width = NodeBubble.titleWidth * size
+        let text = displayText
+        let safe = Self.fitScales.filter { Self.longestWordWidth(text, scale: $0) <= width }
+        return safe.first { Self.textHeight(text, scale: $0, width: width) <= fitHeight } ?? Self.fitScales.last!
+    }
+
+    /// 원 안에 들어가는 줄 수. 넘치는 질문은 여기서 잘라 생략(…)한다.
+    private func compactLineLimit(scale: CGFloat) -> Int {
+        max(1, Int((fitHeight / Self.lineHeight(scale: scale)).rounded(.down)))
+    }
+
+    /// 원 안 질문의 높이. 질문의 중심이 원의 중심에 오도록 위 여백을 정하고, 펼쳐도 같은 여백이라 첫 줄이 움직이지 않는다.
     @State private var compactTitleHeight: CGFloat = 20
-    @State private var cardTitleHeight: CGFloat = 20
 
     private var showsDetail: Bool { isFocused && node.status != .empty }
     private var size: CGFloat { node.sizeScale }
@@ -135,21 +147,16 @@ private struct NodeBubbleBody: View, Equatable {
 
     var body: some View {
         VStack(spacing: 12) {
-            // 원에서는 질문 길이에 맞춰 글자 크기를 정하고, 펼치면 기준 크기로 질문 전체를 보여준다.
-            Group {
-                if showsDetail {
-                    title(scale: 1, lineLimit: nil)
-                } else {
-                    compactTitle
+            // 질문 길이에 맞춰 정한 크기를 원과 펼친 카드에 똑같이 쓴다. 원에서는 정해진 줄 수까지만, 펼치면 전체를 보여준다.
+            let scale = fittedScale
+            let lines = compactLineLimit(scale: scale)
+            title(scale: scale, lineLimit: showsDetail ? nil : lines)
+                .foregroundStyle(node.question.isEmpty ? AnyShapeStyle(.secondary) : textColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
+                .background {
+                    title(scale: scale, lineLimit: lines)
+                        .hidden()
                         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { compactTitleHeight = $0 }
                 }
-            }
-            .foregroundStyle(node.question.isEmpty ? AnyShapeStyle(.secondary) : textColor.map(AnyShapeStyle.init) ?? AnyShapeStyle(.primary))
-            .background {
-                title(scale: 1, lineLimit: cardLineLimit)
-                    .hidden()
-                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { cardTitleHeight = $0 }
-            }
 
             if showsDetail {
                 detail
@@ -165,7 +172,7 @@ private struct NodeBubbleBody: View, Equatable {
             }
         }
         // 질문의 중심이 원의 중심(위에서 70pt)에 오도록 위 여백을 맞춘다. 펼쳐도 같은 여백이라 질문이 움직이지 않는다.
-        .padding(.top, max(10, NodeBubble.titleCenter * size - (showsDetail ? cardTitleHeight : compactTitleHeight) / 2))
+        .padding(.top, max(10, NodeBubble.titleCenter * size - compactTitleHeight / 2))
         .padding(.bottom, showsDetail ? 18 : 0)
         .frame(width: (showsDetail ? NodeBubble.expandedWidth : NodeBubble.compactDiameter) * size, alignment: .top)
         .frame(minHeight: NodeBubble.compactDiameter * size, alignment: .top)
@@ -173,20 +180,6 @@ private struct NodeBubbleBody: View, Equatable {
         // 사용자가 고른 노드 색이 상태 색(대기 노랑 · 오류 빨강)보다 우선하고, 상태는 테두리로 남는다.
         .layeredFill(shape, tint: Theme.nodeColor(node.fillColor).map { $0.opacity(0.28) } ?? Theme.tint(for: node.status))
         .clipShape(shape)
-    }
-
-    /// 맞는 크기 중 가장 큰 것. 모두 넘치면 가장 작은 크기로 들어가는 줄 수까지만 보여준다.
-    private var compactTitle: some View {
-        let smallest = Self.fitScales.last!
-        let lines = max(1, Int((fitHeight / Self.lineHeight(scale: smallest)).rounded(.down)))
-        return ViewThatFits(in: .vertical) {
-            ForEach(wordSafeScales, id: \.self) { scale in
-                title(scale: scale, lineLimit: nil)
-            }
-            title(scale: smallest, lineLimit: lines)
-        }
-        .frame(height: fitHeight, alignment: .center)
-        .fixedSize(horizontal: false, vertical: false)
     }
 
     private func title(scale: CGFloat, lineLimit: Int?) -> some View {
