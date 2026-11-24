@@ -36,8 +36,17 @@ struct WhyNodeApp: App {
         .commands {
             NewProjectCommands(settings: settings)
             UndoCommands(settings: settings)
+            HelpCommands(settings: settings)
             TextSizeCommands(settings: settings)
         }
+
+        // 메뉴 막대 도움말 > WhyNode 도움말 (⌘?)
+        Window(tr("WhyNode Help"), id: HelpView.windowId) {
+            HelpView()
+                .environment(settings)
+                .environment(\.locale, settings.language.locale)
+        }
+        .windowResizability(.contentMinSize)
 
         // 메뉴 막대 WhyNode > 설정… (⌘,)
         Settings {

@@ -79,6 +79,9 @@ final class SettingsStore {
 
     var isConfigured: Bool { ai != nil }
 
+    /// 도움말 창이 열리면서 보여 줄 섹션(메뉴의 단축키 항목 등). 보여 준 뒤 비운다.
+    var helpSection: HelpSection?
+
 
     init() {
         // 화면 문구를 읽기 전에 언어를 정한다. 이 객체는 앱이 시작할 때 가장 먼저 만들어진다.

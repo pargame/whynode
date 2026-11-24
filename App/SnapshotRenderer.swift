@@ -20,6 +20,10 @@ enum SnapshotRenderer {
                 renderCards(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("cards-\(name).png"))
                 renderStatus(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("status-\(name).png"))
                 renderStylePanel(scheme: name == "dark" ? .dark : .light, to: directory.appendingPathComponent("style-\(name).png"))
+                if name == "light" {
+                    let settings = SettingsStore()
+                    write(HelpContent().environment(\.locale, settings.language.locale).frame(width: 620).background(Theme.canvas), to: directory.appendingPathComponent("help.png"))
+                }
             }
         }
         exit(0)
