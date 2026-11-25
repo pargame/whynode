@@ -4,6 +4,10 @@
 
 WhyNode is a native macOS app for building interactive knowledge mind maps through follow-up questions. Each node pairs a single question with a focused AI answer and suggests the next questions to explore. iPadOS support is paused until official provider sign-in is available; the code keeps its platform branches.
 
+- Concept & UX: [`CONCEPT.md`](CONCEPT.md)
+- Specification & Architecture: [`SPEC.md`](SPEC.md)
+- Development status & measurements: [`STATUS.md`](STATUS.md)
+
 ## Project Structure
 
 | Path | Description |
@@ -25,7 +29,7 @@ WhyNode looks for the CLI in `~/.local/bin`, `/opt/homebrew/bin`, `/usr/local/bi
 
 ## AI Connections & Token Optimization
 
-For every request, WhyNode assembles only the tree context relevant to the target node. Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead.
+For every request, WhyNode assembles only the tree context relevant to the target node (see `SPEC.md` §6.1). Because that context is intentionally compact, default CLI system prompts, tool schemas, and global user rules would otherwise dominate token usage. The settings below strip that overhead.
 
 | Connection | Configuration | Purpose | Measured Impact |
 | :--- | :--- | :--- | :--- |
@@ -38,7 +42,7 @@ For every request, WhyNode assembles only the tree context relevant to the targe
 
 - The dedicated `agy` agent file (`<temp>/WhyNodeCLI/.agents/agents/whynode.md`) is regenerated from the active system prompt on every connection; do not edit it manually.
 - Claude's `--bare` flag is not used because it cannot read subscription authentication.
-- WhyNode never reads or reuses subscription tokens directly; CLI authentication is delegated entirely to the official CLI.
+- WhyNode never reads or reuses subscription tokens directly (`SPEC.md` §5.2); CLI authentication is delegated entirely to the official CLI.
 
 ## Building from Source (macOS)
 
