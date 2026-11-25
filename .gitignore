@@ -43,3 +43,14 @@ SPEC.md
 CONCEPT.md
 projects/
 *.whynode
+
+# AI agent workspaces & local notes
+.claude/
+.collab/
+.gemini/
+*.local.md
+
+# Release artifacts
+*.dmg
+*.zip
+release/
