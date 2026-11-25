@@ -56,3 +56,7 @@ open WhyNode.app
 ```
 
 리포지토리 루트의 `WhyNode.app`은 최신 빌드 결과(`DerivedData/Build/Products/Debug/WhyNode.app`)를 가리키는 로컬 바로가기이며, Git에는 포함하지 않습니다.
+
+## 라이선스
+
+코드는 [MIT License](LICENSE)를 따릅니다.

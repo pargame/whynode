@@ -56,3 +56,7 @@ open WhyNode.app
 ```
 
 `WhyNode.app` at the repository root is a local symlink to `DerivedData/Build/Products/Debug/WhyNode.app` (not committed) so it always points to the latest debug build.
+
+## License
+
+The code is licensed under the [MIT License](LICENSE).
